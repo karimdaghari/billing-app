@@ -1,0 +1,8 @@
+name = "billing-app"
+main = "src/index.ts"
+compatibility_date = "2024-10-01"
+compatibility_flags = [ "nodejs_compat" ]
+
+[[kv_namespaces]]
+binding = "DATA_STORE"
+id = "7949e40b48c04f61b7d6453f7190e773"
