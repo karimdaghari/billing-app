@@ -89,6 +89,9 @@ async function createPayment({
 	const payment = await db.get("payment", id);
 
 	if (!payment) {
+		await db.update("invoice", invoice.id, {
+			payment_status: "failed",
+		});
 		throw new HTTPException(500, {
 			message: "Failed to create payment",
 		});
