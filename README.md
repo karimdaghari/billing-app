@@ -88,3 +88,7 @@ To explore the API:
 3. Use the interactive interface to test endpoints and view detailed specifications
 
 For the most up-to-date and comprehensive API information, please refer to the `http://localhost:4200/docs` endpoint.
+
+## References
+
+- [Prorated billing 101: What it is, how it works, and how to use it by Stripe](https://stripe.com/en-sg/resources/more/prorated-billing-101-what-it-is-how-it-works-and-how-to-use-it)
