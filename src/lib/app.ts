@@ -2,6 +2,7 @@ import { OpenAPIHono, type RouteHook } from "@hono/zod-openapi";
 import { KVDB } from "../db/client";
 import { createMiddleware } from "hono/factory";
 import { sendEmail, type EmailParams } from "@/services/email";
+import type { Context } from "hono";
 
 type Env = {
 	Bindings: {
@@ -11,7 +12,7 @@ type Env = {
 		 */
 		DATA_STORE: KVNamespace;
 		SENDGRID_API_KEY: string;
-		SENDER_EMAIL_ADDRESS: string;
+		FROM_EMAIL_ADDRESS: string;
 	};
 	Variables: {
 		/**
@@ -21,6 +22,8 @@ type Env = {
 		sendEmail: (params: Omit<EmailParams, "config">) => Promise<void>;
 	};
 };
+
+export type HonoContext = Context<Env>;
 /**
  * Creates a new instance of the hono app.
  * This instance is used to define routes and middleware.
@@ -39,8 +42,8 @@ export function createAppInstance() {
 			sendEmail({
 				...params,
 				config: {
-					API_KEY: c.env.SENDER_EMAIL_ADDRESS,
-					FROM_EMAIL_ADDRESS: c.env.SENDER_EMAIL_ADDRESS,
+					API_KEY: c.env.SENDGRID_API_KEY,
+					FROM_EMAIL_ADDRESS: c.env.FROM_EMAIL_ADDRESS,
 				},
 			}),
 		);

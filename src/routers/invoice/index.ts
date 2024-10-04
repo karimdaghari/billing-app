@@ -2,8 +2,11 @@ import { InvoiceInput, InvoiceSchema } from "@/db/schema";
 import { HTTPException } from "hono/http-exception";
 import { createRoute, z } from "@hono/zod-openapi";
 import { createAppInstance } from "@/lib/app";
-import { endOfMonth, endOfYear, getDaysInMonth, getDaysInYear } from "date-fns";
 import { getCustomerSubscriptionPlanByCustomerId } from "../customer/lib";
+import {
+	calculateProratedCharge,
+	getBillingCycleEndDate,
+} from "@/services/billing";
 
 export const invoiceRouter = createAppInstance();
 
@@ -58,6 +61,9 @@ const post = createRoute({
 		500: {
 			description: "Failed to generate invoice",
 		},
+		404: {
+			description: "Customer not found",
+		},
 	},
 });
 
@@ -76,26 +82,12 @@ invoiceRouter.openapi(post, async (c) => {
 
 	const today = new Date();
 
-	let dueDate: string;
-	let proratedAmount: number;
-
-	if (billingCycle === "monthly") {
-		dueDate = endOfMonth(today).toISOString();
-
-		const daysInMonth = getDaysInMonth(today);
-		const remainingDays = daysInMonth - today.getDate() + 1;
-		proratedAmount = (price / daysInMonth) * remainingDays;
-	} else if (billingCycle === "yearly") {
-		dueDate = endOfYear(today).toISOString();
-
-		const daysInYear = getDaysInYear(today);
-		const remainingDays = daysInYear - today.getDate() + 1;
-		proratedAmount = (price / daysInYear) * remainingDays;
-	} else {
-		throw new HTTPException(500, {
-			message: "Invalid billing cycle",
-		});
-	}
+	const dueDate = getBillingCycleEndDate(today, billingCycle).toISOString();
+	const proratedAmount = calculateProratedCharge({
+		billing_cycle: billingCycle,
+		fullBillingAmount: price,
+		changeDate: today,
+	});
 
 	const amount = Number(proratedAmount.toFixed(3));
 
@@ -113,6 +105,21 @@ invoiceRouter.openapi(post, async (c) => {
 			message: `Failed to generate invoice for customer: ${input.customer_id}`,
 		});
 	}
+
+	const customer = await c.var.db.get("customer", input.customer_id);
+
+	if (!customer) {
+		throw new HTTPException(404, {
+			message: "Customer not found",
+		});
+	}
+
+	await c.var.sendEmail({
+		to: customer.email,
+		subject: "Invoice Generated",
+		body: `Invoice generated for ${invoice.id}`,
+		type: "text",
+	});
 
 	return c.json(invoice, 200);
 });

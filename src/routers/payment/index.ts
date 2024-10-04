@@ -1,6 +1,5 @@
-import type { DBClient } from "@/db/client";
 import { PaymentInput, PaymentSchema } from "@/db/schema";
-import { createAppInstance } from "@/lib/app";
+import { createAppInstance, type HonoContext } from "@/lib/app";
 import { createRoute } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 
@@ -48,7 +47,7 @@ paymentRouter.openapi(post, async (c) => {
 	const input = c.req.valid("json");
 
 	const payment = await createPayment({
-		db: c.var.db,
+		c,
 		input,
 	});
 
@@ -56,12 +55,15 @@ paymentRouter.openapi(post, async (c) => {
 });
 
 async function createPayment({
-	db,
 	input,
+	c,
 }: {
-	db: DBClient;
 	input: PaymentInput;
+	c: HonoContext;
 }) {
+	const db = c.var.db;
+	const sendEmail = c.var.sendEmail;
+
 	const invoice = await db.get("invoice", input.invoice_id);
 
 	if (!invoice) {
@@ -88,19 +90,43 @@ async function createPayment({
 	const id = await db.insert("payment", input);
 	const payment = await db.get("payment", id);
 
-	if (!payment) {
-		await db.update("invoice", invoice.id, {
-			payment_status: "failed",
+	const customer = await db.get("customer", invoice.customer_id);
+
+	if (!customer) {
+		throw new HTTPException(404, {
+			message: "Customer not found",
 		});
+	}
+
+	if (!payment) {
+		await Promise.all([
+			db.update("invoice", invoice.id, {
+				payment_status: "failed",
+			}),
+			sendEmail({
+				to: customer.email,
+				subject: "Payment Failed",
+				body: `Payment failed for invoice: ${invoice.id}`,
+				type: "text",
+			}),
+		]);
 		throw new HTTPException(500, {
 			message: "Failed to create payment",
 		});
 	}
 
-	await db.update("invoice", invoice.id, {
-		payment_status: "paid",
-		invoice_status: "paid",
-	});
+	await Promise.all([
+		db.update("invoice", invoice.id, {
+			payment_status: "paid",
+			invoice_status: "paid",
+		}),
+		sendEmail({
+			to: customer.email,
+			subject: "Payment Successful",
+			body: `Payment successful for invoice: ${invoice.id}`,
+			type: "text",
+		}),
+	]);
 
 	return payment;
 }
