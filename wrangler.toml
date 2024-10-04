@@ -3,6 +3,13 @@ main = "src/index.ts"
 compatibility_date = "2024-10-01"
 compatibility_flags = [ "nodejs_compat" ]
 
+[dev]
+port = 4200
+
 [[kv_namespaces]]
 binding = "DATA_STORE"
-id = "7949e40b48c04f61b7d6453f7190e773"
+id = "c1290a3e30fa42a7b941dc626a2a108a"
+
+[[kv_namespaces]]
+binding = "DATA_STORE_TEST"
+id = "437d53baba5445aa916839f04c78fff5"

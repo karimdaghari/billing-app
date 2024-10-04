@@ -1,9 +1,32 @@
 import { createAppInstance } from "@/lib/app";
 import { CustomerInput, CustomerSchema } from "@/db/schema";
 import { createRoute, z } from "@hono/zod-openapi";
-import { createAPIResponseSchema } from "@/lib/api-helpers";
+import { HTTPException } from "hono/http-exception";
+import { checkCustomerEmailIsUnique } from "./lib";
 
 export const customerRouter = createAppInstance();
+
+const getAll = createRoute({
+	method: "get",
+	path: "/all",
+	summary: "Get all customers",
+	description: "Retrieves all customers",
+	responses: {
+		200: {
+			description: "Retrieves all customers",
+			content: {
+				"application/json": {
+					schema: CustomerSchema.array(),
+				},
+			},
+		},
+	},
+});
+
+customerRouter.openapi(getAll, async (c) => {
+	const res = await c.var.db.getAll("customer");
+	return c.json(res, 200);
+});
 
 const get = createRoute({
 	method: "get",
@@ -23,10 +46,9 @@ const get = createRoute({
 	responses: {
 		200: {
 			description: "Retrieves a customer by their ID",
-
 			content: {
 				"application/json": {
-					schema: createAPIResponseSchema(CustomerSchema),
+					schema: CustomerSchema.nullable(),
 				},
 			},
 		},
@@ -35,10 +57,7 @@ const get = createRoute({
 
 customerRouter.openapi(get, async (c) => {
 	const { id } = c.req.valid("param");
-	const db = c.get("db");
-
-	const res = await db.get("customer", id);
-
+	const res = await c.var.db.get("customer", id);
 	return c.json(res, 200);
 });
 
@@ -57,11 +76,11 @@ const post = createRoute({
 		},
 	},
 	responses: {
-		200: {
+		201: {
 			description: "Creates a new customer",
 			content: {
 				"application/json": {
-					schema: createAPIResponseSchema(CustomerSchema),
+					schema: CustomerSchema,
 				},
 			},
 		},
@@ -70,11 +89,43 @@ const post = createRoute({
 
 customerRouter.openapi(post, async (c) => {
 	const customer = c.req.valid("json");
-	const db = c.get("db");
 
-	const res = await db.insert("customer", customer);
+	const plan = await c.var.db.get(
+		"subscriptionPlan",
+		customer.subscription_plan_id,
+	);
 
-	return c.json(res, 200);
+	if (!plan) {
+		throw new HTTPException(404, {
+			message: "Subscription plan not found",
+		});
+	}
+
+	if (plan.status === "inactive") {
+		throw new HTTPException(400, {
+			message: "Subscription plan is inactive",
+		});
+	}
+
+	const allCustomers = await c.var.db.getAll("customer");
+
+	if (checkCustomerEmailIsUnique({ allCustomers, email: customer.email })) {
+		throw new HTTPException(400, {
+			message: "Customer already exists",
+		});
+	}
+
+	const id = await c.var.db.insert("customer", customer);
+
+	const res = await c.var.db.get("customer", id);
+
+	if (!res) {
+		throw new HTTPException(500, {
+			message: "Failed to create customer",
+		});
+	}
+
+	return c.json(res, 201);
 });
 
 const put = createRoute({
@@ -94,7 +145,7 @@ const put = createRoute({
 		body: {
 			content: {
 				"application/json": {
-					schema: CustomerInput,
+					schema: CustomerInput.partial(),
 				},
 			},
 		},
@@ -104,7 +155,7 @@ const put = createRoute({
 			description: "Updates a customer",
 			content: {
 				"application/json": {
-					schema: createAPIResponseSchema(CustomerSchema),
+					schema: z.null(),
 				},
 			},
 		},
@@ -115,7 +166,58 @@ customerRouter.openapi(put, async (c) => {
 	const { id } = c.req.valid("param");
 	const input = c.req.valid("json");
 
-	const res = await c.var.db.update("customer", id, input);
+	const allCustomers = await c.var.db.getAll("customer");
 
-	return c.json(res, 200);
+	if (
+		input.email &&
+		checkCustomerEmailIsUnique({ allCustomers, email: input.email })
+	) {
+		throw new HTTPException(400, {
+			message: "The email must be unique",
+		});
+	}
+
+	try {
+		await c.var.db.update("customer", id, input);
+		return c.json(null, 200);
+	} catch (error) {
+		console.error(error);
+		throw new HTTPException(500, {
+			message: "Failed to update customer",
+		});
+	}
+});
+
+const del = createRoute({
+	method: "delete",
+	path: "/{id}",
+	summary: "Delete a customer",
+	description: "Deletes a customer by their ID",
+	request: {
+		params: z.object({
+			id: z.string().openapi({
+				param: {
+					name: "id",
+					in: "path",
+				},
+			}),
+		}),
+	},
+	responses: {
+		200: {
+			description: "Deletes a customer",
+			content: {
+				"application/json": {
+					schema: z.null(),
+				},
+			},
+		},
+	},
+});
+
+customerRouter.openapi(del, async (c) => {
+	const { id } = c.req.valid("param");
+
+	await c.var.db.delete("customer", id);
+	return c.json(null, 200);
 });

@@ -73,7 +73,7 @@ To deploy your worker to Cloudflare:
 
 ## API Documentation
 
-The API documentation for this project is available as an OpenAPI v3.1 specification. You can access the full API reference by visiting the `/docs` endpoint when the server is running.
+The API documentation for this project is available as an OpenAPI v3.1 specification. You can access the full API reference by visiting the `http://localhost:4200/docs` endpoint when the server is running.
 
 This interactive documentation provides detailed information about all available endpoints, including:
 
@@ -84,7 +84,7 @@ This interactive documentation provides detailed information about all available
 To explore the API:
 
 1. Start the server (see "Development" section above)
-2. Navigate to `/docs` in your web browser
+2. Navigate to `http://localhost:4200/docs` in your web browser
 3. Use the interactive interface to test endpoints and view detailed specifications
 
-For the most up-to-date and comprehensive API information, please refer to the `/docs` endpoint.
+For the most up-to-date and comprehensive API information, please refer to the `http://localhost:4200/docs` endpoint.
