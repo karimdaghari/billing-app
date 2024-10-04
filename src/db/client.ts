@@ -138,7 +138,7 @@ export class KVDB {
 		type: T,
 		id: string,
 		input: Partial<InputType<EntityTypeMap[T]>>,
-	): Promise<void> {
+	): Promise<EntityTypeMap[T]> {
 		const key = `${this.getPrefix(type)}${id}`;
 		const existingItem = await this.get(type, id);
 		if (!existingItem) {
@@ -147,6 +147,10 @@ export class KVDB {
 		const updatedItem = { ...existingItem, ...input };
 		const validatedItem = this.validateSchema(type, updatedItem);
 		await this.namespace.put(key, JSON.stringify(validatedItem));
+		return {
+			...validatedItem,
+			id,
+		};
 	}
 }
 
