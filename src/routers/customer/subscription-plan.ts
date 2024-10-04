@@ -1,7 +1,16 @@
-import { CustomerInput, SubscriptionPlanSchema } from "@/db/schema";
+import {
+	CustomerSchema,
+	InvoiceInput,
+	SubscriptionPlanSchema,
+} from "@/db/schema";
 import { createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import { createAppInstance } from "@/lib/app";
+import {
+	calculateProratedAmount,
+	getBillingCycleEndDate,
+} from "@/services/billing";
+import { addDays } from "date-fns";
 
 export const customerSubscriptionPlanRouter = createAppInstance();
 
@@ -69,9 +78,10 @@ customerSubscriptionPlanRouter.openapi(get, async (c) => {
 
 const put = createRoute({
 	method: "put",
-	path: "/",
+	path: "/{id}/subscription-plan",
 	summary: "Update a customer's subscription plan",
-	description: "Updates a customer's subscription plan by their ID",
+	description:
+		"Updates a customer's subscription plan and handles prorated billing",
 	request: {
 		params: z.object({
 			id: z
@@ -88,8 +98,8 @@ const put = createRoute({
 		body: {
 			content: {
 				"application/json": {
-					schema: CustomerInput.pick({
-						subscription_status: true,
+					schema: z.object({
+						new_subscription_plan_id: z.string().uuid(),
 					}),
 				},
 			},
@@ -97,10 +107,14 @@ const put = createRoute({
 	},
 	responses: {
 		200: {
-			description: "Updates a customer's subscription plan",
+			description:
+				"Updates a customer's subscription plan and returns prorated invoice",
 			content: {
 				"application/json": {
-					schema: z.null(),
+					schema: z.object({
+						customer: CustomerSchema,
+						proratedInvoice: InvoiceInput,
+					}),
 				},
 			},
 		},
@@ -109,23 +123,71 @@ const put = createRoute({
 
 customerSubscriptionPlanRouter.openapi(put, async (c) => {
 	const { id } = c.req.valid("param");
-	const input = c.req.valid("json");
+	const { new_subscription_plan_id } = c.req.valid("json");
 
 	const customer = await c.var.db.get("customer", id);
-
 	if (!customer) {
-		throw new HTTPException(404, {
-			message: "Customer not found",
+		throw new HTTPException(404, { message: "Customer not found" });
+	}
+
+	const originalPlan = await c.var.db.get(
+		"subscriptionPlan",
+		customer.subscription_plan_id,
+	);
+	const newPlan = await c.var.db.get(
+		"subscriptionPlan",
+		new_subscription_plan_id,
+	);
+	if (!originalPlan || !newPlan) {
+		throw new HTTPException(404, { message: "Subscription plan not found" });
+	}
+
+	const changeDate = new Date();
+	const proratedAmount = calculateProratedAmount({
+		originalPlan,
+		newPlan,
+		changeDate,
+	});
+
+	const billingCycleEndDate = getBillingCycleEndDate(
+		changeDate,
+		newPlan.billing_cycle,
+	);
+	const dueDate = addDays(billingCycleEndDate, 1);
+
+	const invoiceId = await c.var.db.insert("invoice", {
+		customer_id: id,
+		amount: proratedAmount,
+		due_date: dueDate.toISOString(),
+		invoice_status: "generated",
+		payment_status: "pending",
+	});
+
+	const proratedInvoice = await c.var.db.get("invoice", invoiceId);
+
+	if (!proratedInvoice) {
+		throw new HTTPException(500, {
+			message: "Failed to create prorated invoice",
 		});
 	}
 
-	await c.var.db.update("customer", id, {
-		subscription_status: input.subscription_status,
+	// Update customer's subscription
+	const updatedCustomer = await c.var.db.update("customer", id, {
+		subscription_plan_id: new_subscription_plan_id,
+		subscription_status: "active",
 	});
 
-	if (input.subscription_status === "cancelled") {
-		// TODO: Cancel subscription
+	if (!updatedCustomer) {
+		throw new HTTPException(500, {
+			message: "Failed to update customer subscription",
+		});
 	}
 
-	return c.json(null, 200);
+	return c.json(
+		{
+			customer: updatedCustomer,
+			proratedInvoice: { ...proratedInvoice, customer_id: id },
+		},
+		200,
+	);
 });
