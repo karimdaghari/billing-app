@@ -1,8 +1,8 @@
-import { InvoiceInput, InvoiceSchema } from "@/db/models/invoice";
-import { HTTPException } from "hono/http-exception";
+import { InvoiceSchema } from "@/db/models/invoice";
 import { createRoute, z } from "@hono/zod-openapi";
 import { createAppInstance } from "@/lib/app";
 import { createInvoice } from "./lib";
+import { HTTPException } from "hono/http-exception";
 
 export const invoiceRouter = createAppInstance();
 
@@ -34,54 +34,42 @@ invoiceRouter.openapi(getAll, async (c) => {
 const post = createRoute({
 	method: "post",
 	path: "/",
-	summary: "Generate an invoice",
-	description: "Generate an invoice",
-	request: {
-		body: {
-			content: {
-				"application/json": {
-					schema: InvoiceInput,
-				},
-			},
-		},
-	},
+	summary: "Generate all invoices",
+	description: "Generate all invoices",
 	responses: {
 		200: {
 			description: "Invoice generated",
 			content: {
 				"application/json": {
-					schema: InvoiceSchema,
+					schema: InvoiceSchema.array(),
 				},
 			},
 		},
 		500: {
 			description: "Failed to generate invoice",
 		},
-		404: {
-			description: "Customer not found",
-		},
 	},
 });
 
 invoiceRouter.openapi(post, async (c) => {
-	const input = c.req.valid("json");
+	const customers = await c.var.db.getAll("customer");
+	const customersIds = customers.map((customer) => customer.id);
 
-	const invoice = await createInvoice(c.var.db, input.customer_id);
+	const promises = customersIds.map((customerId) =>
+		createInvoice({
+			ctx: c,
+			input: {
+				customer_id: customerId,
+			},
+		}),
+	);
 
-	const customer = await c.var.db.get("customer", input.customer_id);
-
-	if (!customer) {
-		throw new HTTPException(404, {
-			message: "Customer not found",
+	const invoices = await Promise.all(promises).catch((error) => {
+		throw new HTTPException(500, {
+			message: "Failed to generate invoice",
+			cause: error,
 		});
-	}
-
-	await c.var.sendEmail({
-		to: customer.email,
-		subject: "Invoice Generated",
-		body: `Invoice generated for ${invoice.id}`,
-		type: "text",
 	});
 
-	return c.json(invoice, 200);
+	return c.json(invoices, 200);
 });
