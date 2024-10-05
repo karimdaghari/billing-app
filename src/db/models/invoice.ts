@@ -11,6 +11,7 @@ export const InvoiceSchema = BaseSchema.extend({
 	payment_status: z
 		.enum(["pending", "paid", "failed"])
 		.describe("Status of the payment"),
+	payment_retry_count: z.number().default(0).describe("Number of retries"),
 	invoice_status: z.enum(["generated", "sent", "paid", "overdue"]).describe(
 		`Status of the invoice. 
 		generated: The invoice has been generated.
