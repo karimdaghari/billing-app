@@ -1,4 +1,4 @@
-import { InvoiceInput, InvoiceSchema } from "@/db/schema";
+import { InvoiceInput, InvoiceSchema } from "@/db/models/invoice";
 import { HTTPException } from "hono/http-exception";
 import { createRoute, z } from "@hono/zod-openapi";
 import { createAppInstance } from "@/lib/app";

@@ -1,5 +1,5 @@
 import { createAppInstance } from "@/lib/app";
-import { CustomerInput, CustomerSchema } from "@/db/schema";
+import { CustomerInput, CustomerSchema } from "@/db/models/customer";
 import { createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import { checkCustomerEmailIsUnique } from "./lib";

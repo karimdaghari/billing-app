@@ -1,5 +1,8 @@
 import { createAppInstance } from "@/lib/app";
-import { SubscriptionPlanInput, SubscriptionPlanSchema } from "@/db/schema";
+import {
+	SubscriptionPlanInput,
+	SubscriptionPlanSchema,
+} from "@/db/models/subscription-plan";
 import { createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 

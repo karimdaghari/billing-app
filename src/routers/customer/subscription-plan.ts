@@ -1,8 +1,3 @@
-import {
-	CustomerSchema,
-	InvoiceInput,
-	SubscriptionPlanSchema,
-} from "@/db/schema";
 import { createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import { createAppInstance } from "@/lib/app";
@@ -11,6 +6,9 @@ import {
 	getBillingCycleEndDate,
 } from "@/services/billing";
 import { addDays } from "date-fns";
+import { CustomerSchema } from "@/db/models/customer";
+import { InvoiceInput } from "@/db/models/invoice";
+import { SubscriptionPlanSchema } from "@/db/models/subscription-plan";
 
 export const customerSubscriptionPlanRouter = createAppInstance();
 

@@ -1,5 +1,6 @@
 import type { DBClient } from "@/db/client";
-import { type CustomerSchema, InvoiceInput } from "@/db/schema";
+import { InvoiceInput } from "@/db/models/invoice";
+import type { CustomerSchema } from "@/db/models/customer";
 import type { z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 

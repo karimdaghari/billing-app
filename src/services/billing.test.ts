@@ -1,11 +1,6 @@
 import { describe, it, expect } from "vitest";
-import {
-	calculateProratedAmount,
-	calculateProratedCharge,
-	getBillingCycleEndDate,
-} from "./billing";
-import type { SubscriptionPlanSchema } from "@/db/schema";
-import { isSameDay } from "date-fns";
+import { calculateProratedAmount, calculateProratedCharge } from "./billing";
+import type { SubscriptionPlanSchema } from "@/db/models/subscription-plan";
 
 describe("calculateProratedAmount", () => {
 	const originalPlan: SubscriptionPlanSchema = {

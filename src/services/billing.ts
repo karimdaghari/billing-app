@@ -8,7 +8,7 @@ import {
 	startOfYear,
 } from "date-fns";
 import BigNumber from "bignumber.js";
-import { SubscriptionPlanSchema } from "@/db/schema";
+import { SubscriptionPlanSchema } from "@/db/models/subscription-plan";
 
 /**
  * Determines the end date of the billing cycle based on the billing cycle type.

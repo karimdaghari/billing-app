@@ -1,5 +1,5 @@
 import type { DBClient } from "@/db/client";
-import type { InvoiceSchema } from "@/db/schema";
+import type { InvoiceSchema } from "@/db/models/invoice";
 import {
 	calculateProratedCharge,
 	getBillingCycleEndDate,

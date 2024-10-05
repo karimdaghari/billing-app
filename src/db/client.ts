@@ -1,10 +1,8 @@
 import type { z } from "@hono/zod-openapi";
-import {
-	CustomerSchema,
-	SubscriptionPlanSchema,
-	InvoiceSchema,
-	PaymentSchema,
-} from "./schema";
+import { CustomerSchema } from "./models/customer";
+import { InvoiceSchema } from "./models/invoice";
+import { PaymentSchema } from "./models/payment";
+import { SubscriptionPlanSchema } from "./models/subscription-plan";
 
 // Define a type for the KV namespace
 interface KVNamespace {
