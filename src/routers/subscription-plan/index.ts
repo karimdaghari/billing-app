@@ -29,7 +29,7 @@ subscriptionPlanRouter.openapi(getAll, async (c) => {
 
 const post = createRoute({
 	method: "post",
-	path: "/new",
+	path: "/",
 	summary: "Create a new subscription plan",
 	description: "Creates a new subscription plan with the provided details",
 	request: {
@@ -83,8 +83,8 @@ subscriptionPlanRouter.openapi(post, async (c) => {
 	return c.json(res, 201);
 });
 
-const put = createRoute({
-	method: "put",
+const patch = createRoute({
+	method: "patch",
 	path: "/{id}",
 	summary: "Update a subscription plan",
 	description: "Updates a subscription plan with the provided details",
@@ -121,7 +121,7 @@ const put = createRoute({
 	},
 });
 
-subscriptionPlanRouter.openapi(put, async (c) => {
+subscriptionPlanRouter.openapi(patch, async (c) => {
 	const { id } = c.req.valid("param");
 	const input = c.req.valid("json");
 

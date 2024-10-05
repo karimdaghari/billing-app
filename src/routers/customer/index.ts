@@ -63,7 +63,7 @@ customerRouter.openapi(get, async (c) => {
 
 const post = createRoute({
 	method: "post",
-	path: "/new",
+	path: "/",
 	summary: "Create a new customer",
 	description: "Creates a new customer with the provided details",
 	request: {
@@ -128,8 +128,8 @@ customerRouter.openapi(post, async (c) => {
 	return c.json(res, 201);
 });
 
-const put = createRoute({
-	method: "put",
+const patch = createRoute({
+	method: "patch",
 	path: "/{id}",
 	summary: "Update a customer",
 	description: "Updates a customer with the provided details",
@@ -145,7 +145,10 @@ const put = createRoute({
 		body: {
 			content: {
 				"application/json": {
-					schema: CustomerInput.partial(),
+					schema: CustomerInput.omit({
+						subscription_plan_id: true,
+						subscription_status: true,
+					}).partial(),
 				},
 			},
 		},
@@ -162,7 +165,7 @@ const put = createRoute({
 	},
 });
 
-customerRouter.openapi(put, async (c) => {
+customerRouter.openapi(patch, async (c) => {
 	const { id } = c.req.valid("param");
 	const input = c.req.valid("json");
 
@@ -181,9 +184,9 @@ customerRouter.openapi(put, async (c) => {
 		await c.var.db.update("customer", id, input);
 		return c.json(null, 200);
 	} catch (error) {
-		console.error(error);
 		throw new HTTPException(500, {
 			message: "Failed to update customer",
+			cause: error,
 		});
 	}
 });
