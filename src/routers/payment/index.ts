@@ -1,5 +1,6 @@
-import { PaymentInput, PaymentSchema } from "@/db/schema";
+import { PaymentInput, PaymentSchema } from "@/db/models/payment";
 import { createAppInstance, type HonoContext } from "@/lib/app";
+import { processPayment } from "@/services/payment";
 import { createRoute } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 
@@ -61,10 +62,7 @@ async function createPayment({
 	input: PaymentInput;
 	c: HonoContext;
 }) {
-	const db = c.var.db;
-	const sendEmail = c.var.sendEmail;
-
-	const invoice = await db.get("invoice", input.invoice_id);
+	const invoice = await c.var.db.get("invoice", input.invoice_id);
 
 	if (!invoice) {
 		throw new HTTPException(404, {
@@ -87,10 +85,10 @@ async function createPayment({
 		});
 	}
 
-	const id = await db.insert("payment", input);
-	const payment = await db.get("payment", id);
+	const newPaymentId = await c.var.db.insert("payment", input);
+	const payment = await c.var.db.get("payment", newPaymentId);
 
-	const customer = await db.get("customer", invoice.customer_id);
+	const customer = await c.var.db.get("customer", invoice.customer_id);
 
 	if (!customer) {
 		throw new HTTPException(404, {
@@ -99,34 +97,14 @@ async function createPayment({
 	}
 
 	if (!payment) {
-		await Promise.all([
-			db.update("invoice", invoice.id, {
-				payment_status: "failed",
-			}),
-			sendEmail({
-				to: customer.email,
-				subject: "Payment Failed",
-				body: `Payment failed for invoice: ${invoice.id}`,
-				type: "text",
-			}),
-		]);
 		throw new HTTPException(500, {
 			message: "Failed to create payment",
 		});
 	}
 
-	await Promise.all([
-		db.update("invoice", invoice.id, {
-			payment_status: "paid",
-			invoice_status: "paid",
-		}),
-		sendEmail({
-			to: customer.email,
-			subject: "Payment Successful",
-			body: `Payment successful for invoice: ${invoice.id}`,
-			type: "text",
-		}),
-	]);
+	try {
+		await processPayment({ ctx: c, input: { id: newPaymentId } });
+	} catch (error) {}
 
 	return payment;
 }
