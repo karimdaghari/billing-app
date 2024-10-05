@@ -191,3 +191,70 @@ customerSubscriptionPlanRouter.openapi(put, async (c) => {
 		200,
 	);
 });
+
+const cancelRoute = createRoute({
+	method: "put",
+	path: "/{id}/subscription-plan/cancel",
+	summary: "Cancel a customer's active subscription plan",
+	description: "Cancels a customer's active subscription plan",
+	request: {
+		params: z.object({
+			id: z
+				.string()
+				.uuid()
+				.openapi({
+					param: {
+						name: "id",
+						in: "path",
+						required: true,
+					},
+				}),
+		}),
+	},
+	responses: {
+		200: {
+			description: "Cancels a customer's active subscription plan",
+			content: {
+				"application/json": {
+					schema: CustomerSchema,
+				},
+			},
+		},
+		404: {
+			description: "Customer not found",
+		},
+		400: {
+			description: "Customer does not have an active subscription",
+		},
+		500: {
+			description: "Failed to cancel customer subscription",
+		},
+	},
+});
+
+customerSubscriptionPlanRouter.openapi(cancelRoute, async (c) => {
+	const { id } = c.req.valid("param");
+
+	const customer = await c.var.db.get("customer", id);
+	if (!customer) {
+		throw new HTTPException(404, { message: "Customer not found" });
+	}
+
+	if (customer.subscription_status !== "active") {
+		throw new HTTPException(400, {
+			message: "Customer does not have an active subscription",
+		});
+	}
+
+	const updatedCustomer = await c.var.db.update("customer", id, {
+		subscription_status: "cancelled",
+	});
+
+	if (!updatedCustomer) {
+		throw new HTTPException(500, {
+			message: "Failed to cancel customer subscription",
+		});
+	}
+
+	return c.json(updatedCustomer, 200);
+});
