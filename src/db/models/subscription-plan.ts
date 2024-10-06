@@ -8,7 +8,7 @@ export const SubscriptionPlanSchema = BaseSchema.extend({
 	billing_cycle: z
 		.enum(["monthly", "yearly"])
 		.describe("The billing cycle of the plan"),
-	price: z.number().positive().describe("Price of the plan"),
+	price: z.number().nonnegative().describe("Price of the plan"),
 	status: z.enum(["active", "inactive"]).describe("Status of the plan"),
 }).openapi("SubscriptionPlan");
 

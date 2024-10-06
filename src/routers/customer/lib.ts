@@ -1,8 +1,8 @@
 import type { DBClient } from "@/db/client";
-import { InvoiceInput } from "@/db/models/invoice";
 import type { CustomerSchema } from "@/db/models/customer";
-import type { z } from "@hono/zod-openapi";
+import { InvoiceInput } from "@/db/models/invoice";
 import { HTTPException } from "hono/http-exception";
+import type { z } from "zod";
 
 export const checkCustomerEmailIsUnique = ({
 	allCustomers,
@@ -14,13 +14,13 @@ export const checkCustomerEmailIsUnique = ({
 
 const ParamsSchema = InvoiceInput.pick({ customer_id: true });
 
-export const getCustomerSubscriptionPlanByCustomerId = async ({
+export async function getCustomerSubscriptionPlanByCustomerId({
 	db,
 	input,
 }: {
 	input: z.infer<typeof ParamsSchema>;
 	db: DBClient;
-}) => {
+}) {
 	const validatedInput = ParamsSchema.parse(input);
 
 	const customer = await db.get("customer", validatedInput.customer_id);
@@ -43,4 +43,4 @@ export const getCustomerSubscriptionPlanByCustomerId = async ({
 	}
 
 	return subscriptionPlan;
-};
+}

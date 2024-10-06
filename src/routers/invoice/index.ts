@@ -1,14 +1,14 @@
 import { InvoiceSchema } from "@/db/models/invoice";
 import { createRoute, z } from "@hono/zod-openapi";
-import { createAppInstance } from "@/lib/app";
-import { createInvoice } from "./lib";
+import { createAppInstance, ErrorSchema } from "@/lib/app";
+import { generateInvoice } from "@/services/invoice";
 import { HTTPException } from "hono/http-exception";
 
 export const invoiceRouter = createAppInstance();
 
 const getAll = createRoute({
 	method: "get",
-	path: "/",
+	path: "/all",
 	summary: "Get all invoices",
 	description: "Get all invoices",
 	responses: {
@@ -20,9 +20,6 @@ const getAll = createRoute({
 				},
 			},
 		},
-		500: {
-			description: "Failed to fetch invoices",
-		},
 	},
 });
 
@@ -33,7 +30,7 @@ invoiceRouter.openapi(getAll, async (c) => {
 
 const post = createRoute({
 	method: "post",
-	path: "/",
+	path: "/all",
 	summary: "Generate all invoices",
 	description: "Generate all invoices",
 	responses: {
@@ -46,17 +43,24 @@ const post = createRoute({
 			},
 		},
 		500: {
-			description: "Failed to generate invoice",
+			description: "Failed to generate invoices",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
 		},
 	},
 });
 
 invoiceRouter.openapi(post, async (c) => {
 	const customers = await c.var.db.getAll("customer");
-	const customersIds = customers.map((customer) => customer.id);
+	const customersIds = customers
+		.filter((customer) => customer.subscription_status === "active")
+		.map((customer) => customer.id);
 
 	const promises = customersIds.map((customerId) =>
-		createInvoice({
+		generateInvoice({
 			ctx: c,
 			input: {
 				customer_id: customerId,
@@ -66,7 +70,7 @@ invoiceRouter.openapi(post, async (c) => {
 
 	const invoices = await Promise.all(promises).catch((error) => {
 		throw new HTTPException(500, {
-			message: "Failed to generate invoice",
+			message: "Failed to generate invoices",
 			cause: error,
 		});
 	});

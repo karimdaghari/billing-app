@@ -1,7 +1,7 @@
-import type { HonoContext } from "@/lib/app";
+import type { AppContext } from "@/lib/app";
 import { processPayment } from "@/services/payment";
 
-export async function retryFailedPayments(c: HonoContext) {
+export async function retryFailedPayments(c: AppContext) {
 	const [allInvoices, allPayments] = await Promise.all([
 		c.var.db.getAll("invoice"),
 		c.var.db.getAll("payment"),

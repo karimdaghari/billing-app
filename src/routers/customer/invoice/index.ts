@@ -1,24 +1,24 @@
-import { createAppInstance } from "@/lib/app";
+import { createAppInstance, ErrorSchema } from "@/lib/app";
 import { InvoiceSchema } from "@/db/models/invoice";
 import { createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
-import { createInvoice } from "../invoice/lib";
+import { generateInvoice } from "@/services/invoice";
 
-export const customerInvoicesRouter = createAppInstance();
+export const customerInvoiceRouter = createAppInstance();
 
 const get = createRoute({
 	method: "get",
-	path: "/",
+	path: "/all",
 	summary: "Get customer's invoices",
 	description: "Retrieves all invoices for a specific customer",
 	request: {
 		params: z.object({
-			id: z
+			customer_id: z
 				.string()
 				.uuid()
 				.openapi({
 					param: {
-						name: "id",
+						name: "customer_id",
 						in: "path",
 						required: true,
 					},
@@ -36,15 +36,20 @@ const get = createRoute({
 		},
 		404: {
 			description: "Customer not found",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
 		},
 	},
 });
 
-customerInvoicesRouter.openapi(get, async (c) => {
-	const { id } = c.req.valid("param");
+customerInvoiceRouter.openapi(get, async (c) => {
+	const { customer_id } = c.req.valid("param");
 
 	const [customer, allInvoices] = await Promise.all([
-		c.var.db.get("customer", id),
+		c.var.db.get("customer", customer_id),
 		c.var.db.getAll("invoice"),
 	]);
 
@@ -53,7 +58,7 @@ customerInvoicesRouter.openapi(get, async (c) => {
 	}
 
 	const customerInvoices = allInvoices.filter(
-		(invoice) => invoice.customer_id === id,
+		(invoice) => invoice.customer_id === customer_id,
 	);
 
 	return c.json(customerInvoices, 200);
@@ -83,15 +88,20 @@ const post = createRoute({
 		},
 		500: {
 			description: "Failed to generate invoice",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
 		},
 	},
 });
 
-customerInvoicesRouter.openapi(post, async (c) => {
+customerInvoiceRouter.openapi(post, async (c) => {
 	const { id } = c.req.valid("param");
 
 	try {
-		const invoice = await createInvoice({
+		const invoice = await generateInvoice({
 			ctx: c,
 			input: {
 				customer_id: id,

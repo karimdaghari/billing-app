@@ -118,9 +118,14 @@ export class KVDB {
 	 * @param type - The type of item to delete
 	 * @param id - The ID of the item to delete
 	 */
-	async delete<T extends SchemaType>(type: T, id: string): Promise<void> {
-		const key = `${this.getPrefix(type)}${id}`;
-		await this.namespace.delete(key);
+	async delete<T extends SchemaType>(type: T, id: string): Promise<boolean> {
+		try {
+			const key = `${this.getPrefix(type)}${id}`;
+			await this.namespace.delete(key);
+			return true;
+		} catch (error) {
+			return false;
+		}
 	}
 
 	/**

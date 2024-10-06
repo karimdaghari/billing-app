@@ -1,4 +1,4 @@
-import { createAppInstance } from "@/lib/app";
+import { createAppInstance, ErrorSchema, ResponseSchema } from "@/lib/app";
 import { CustomerInput, CustomerSchema } from "@/db/models/customer";
 import { createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
@@ -30,14 +30,14 @@ customerRouter.openapi(getAll, async (c) => {
 
 const get = createRoute({
 	method: "get",
-	path: "/{id}",
+	path: "/{customer_id}",
 	summary: "Get a customer by ID",
 	description: "Retrieves a customer by their ID",
 	request: {
 		params: z.object({
-			id: z.string().openapi({
+			customer_id: z.string().openapi({
 				param: {
-					name: "id",
+					name: "customer_id",
 					in: "path",
 				},
 			}),
@@ -52,12 +52,25 @@ const get = createRoute({
 				},
 			},
 		},
+		404: {
+			description: "Customer not found",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
+		},
 	},
 });
 
 customerRouter.openapi(get, async (c) => {
-	const { id } = c.req.valid("param");
-	const res = await c.var.db.get("customer", id);
+	const { customer_id } = c.req.valid("param");
+	const res = await c.var.db.get("customer", customer_id);
+	if (!res) {
+		throw new HTTPException(404, {
+			message: "Customer not found",
+		});
+	}
 	return c.json(res, 200);
 });
 
@@ -84,15 +97,39 @@ const post = createRoute({
 				},
 			},
 		},
+		400: {
+			description: "Bad Request",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
+		},
+		404: {
+			description: "Not Found",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
+		},
+		500: {
+			description: "Internal Server Error",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
+		},
 	},
 });
 
 customerRouter.openapi(post, async (c) => {
-	const customer = c.req.valid("json");
+	const input = c.req.valid("json");
 
 	const plan = await c.var.db.get(
 		"subscriptionPlan",
-		customer.subscription_plan_id,
+		input.subscription_plan_id,
 	);
 
 	if (!plan) {
@@ -109,13 +146,16 @@ customerRouter.openapi(post, async (c) => {
 
 	const allCustomers = await c.var.db.getAll("customer");
 
-	if (checkCustomerEmailIsUnique({ allCustomers, email: customer.email })) {
+	if (!checkCustomerEmailIsUnique({ allCustomers, email: input.email })) {
 		throw new HTTPException(400, {
-			message: "Customer already exists",
+			message: "The email must be unique",
 		});
 	}
 
-	const id = await c.var.db.insert("customer", customer);
+	const id = await c.var.db.insert("customer", {
+		...input,
+		subscription_status: "active",
+	});
 
 	const res = await c.var.db.get("customer", id);
 
@@ -130,14 +170,14 @@ customerRouter.openapi(post, async (c) => {
 
 const patch = createRoute({
 	method: "patch",
-	path: "/{id}",
+	path: "/{customer_id}",
 	summary: "Update a customer",
 	description: "Updates a customer with the provided details",
 	request: {
 		params: z.object({
-			id: z.string().openapi({
+			customer_id: z.string().openapi({
 				param: {
-					name: "id",
+					name: "customer_id",
 					in: "path",
 				},
 			}),
@@ -147,7 +187,6 @@ const patch = createRoute({
 				"application/json": {
 					schema: CustomerInput.omit({
 						subscription_plan_id: true,
-						subscription_status: true,
 					}).partial(),
 				},
 			},
@@ -158,7 +197,15 @@ const patch = createRoute({
 			description: "Updates a customer",
 			content: {
 				"application/json": {
-					schema: z.null(),
+					schema: CustomerSchema,
+				},
+			},
+		},
+		500: {
+			description: "Failed to update customer",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
 				},
 			},
 		},
@@ -166,7 +213,7 @@ const patch = createRoute({
 });
 
 customerRouter.openapi(patch, async (c) => {
-	const { id } = c.req.valid("param");
+	const { customer_id: id } = c.req.valid("param");
 	const input = c.req.valid("json");
 
 	const allCustomers = await c.var.db.getAll("customer");
@@ -181,8 +228,8 @@ customerRouter.openapi(patch, async (c) => {
 	}
 
 	try {
-		await c.var.db.update("customer", id, input);
-		return c.json(null, 200);
+		const res = await c.var.db.update("customer", id, input);
+		return c.json(res, 200);
 	} catch (error) {
 		throw new HTTPException(500, {
 			message: "Failed to update customer",
@@ -193,14 +240,14 @@ customerRouter.openapi(patch, async (c) => {
 
 const del = createRoute({
 	method: "delete",
-	path: "/{id}",
+	path: "/{customer_id}",
 	summary: "Delete a customer",
 	description: "Deletes a customer by their ID",
 	request: {
 		params: z.object({
-			id: z.string().openapi({
+			customer_id: z.string().openapi({
 				param: {
-					name: "id",
+					name: "customer_id",
 					in: "path",
 				},
 			}),
@@ -211,7 +258,15 @@ const del = createRoute({
 			description: "Deletes a customer",
 			content: {
 				"application/json": {
-					schema: z.null(),
+					schema: ResponseSchema,
+				},
+			},
+		},
+		500: {
+			description: "Failed to delete customer",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
 				},
 			},
 		},
@@ -219,8 +274,20 @@ const del = createRoute({
 });
 
 customerRouter.openapi(del, async (c) => {
-	const { id } = c.req.valid("param");
+	const { customer_id } = c.req.valid("param");
 
-	await c.var.db.delete("customer", id);
-	return c.json(null, 200);
+	const res = await c.var.db.delete("customer", customer_id);
+	if (!res) {
+		throw new HTTPException(500, {
+			message: "Failed to delete customer",
+		});
+	}
+
+	return c.json(
+		{
+			code: 200,
+			message: "OK",
+		},
+		200,
+	);
 });

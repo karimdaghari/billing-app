@@ -8,4 +8,4 @@ port = 4200
 
 [[kv_namespaces]]
 binding = "DATA_STORE"
-id = "aa95a191a3ca475ead0c8c7108db09c1"
+id = "8b746b1f95aa44f9972ffc24ae71f7fc"

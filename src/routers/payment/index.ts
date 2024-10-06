@@ -1,5 +1,5 @@
 import { PaymentInput, PaymentSchema } from "@/db/models/payment";
-import { createAppInstance, type HonoContext } from "@/lib/app";
+import { createAppInstance, ErrorSchema } from "@/lib/app";
 import { processPayment } from "@/services/payment";
 import { createRoute } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
@@ -21,7 +21,7 @@ const post = createRoute({
 		},
 	},
 	responses: {
-		200: {
+		201: {
 			description: "Created payment",
 			content: {
 				"application/json": {
@@ -31,15 +31,35 @@ const post = createRoute({
 		},
 		500: {
 			description: "Failed to create payment",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
 		},
 		406: {
 			description: "Paid amount does not match invoice amount",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
 		},
 		409: {
 			description: "Invoice is already paid",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
 		},
 		404: {
 			description: "Invoice not found",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
 		},
 	},
 });
@@ -47,21 +67,6 @@ const post = createRoute({
 paymentRouter.openapi(post, async (c) => {
 	const input = c.req.valid("json");
 
-	const payment = await createPayment({
-		c,
-		input,
-	});
-
-	return c.json(payment);
-});
-
-async function createPayment({
-	input,
-	c,
-}: {
-	input: PaymentInput;
-	c: HonoContext;
-}) {
 	const invoice = await c.var.db.get("invoice", input.invoice_id);
 
 	if (!invoice) {
@@ -86,15 +91,8 @@ async function createPayment({
 	}
 
 	const newPaymentId = await c.var.db.insert("payment", input);
+
 	const payment = await c.var.db.get("payment", newPaymentId);
-
-	const customer = await c.var.db.get("customer", invoice.customer_id);
-
-	if (!customer) {
-		throw new HTTPException(404, {
-			message: "Customer not found",
-		});
-	}
 
 	if (!payment) {
 		throw new HTTPException(500, {
@@ -104,7 +102,9 @@ async function createPayment({
 
 	try {
 		await processPayment({ ctx: c, input: { id: newPaymentId } });
-	} catch (error) {}
+	} catch (error) {
+		// We don't need to do anything as the payment will be retried up to 3 times
+	}
 
-	return payment;
-}
+	return c.json(payment, 201);
+});

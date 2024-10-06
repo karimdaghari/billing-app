@@ -1,6 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { calculateProratedAmount, calculateProratedCharge } from "./billing";
+import { calculateProratedAmount, calculateProratedCharge } from ".";
 import type { SubscriptionPlanSchema } from "@/db/models/subscription-plan";
+
+describe("calculateProratedCharge", () => {
+	it("should calculate prorated charge correctly for a partial month", () => {
+		const fullBillingAmount = 90;
+		const changeDate = new Date("2024-10-10"); // 10th day of a 30-day month
+		// Expected prorated charge: $3 per day * 21 days = $63
+		const expectedAmount = 63;
+
+		const result = calculateProratedCharge({
+			fullBillingAmount,
+			billing_cycle: "monthly",
+			changeDate,
+		});
+
+		expect(result).toBeCloseTo(expectedAmount, 2);
+	});
+});
 
 describe("calculateProratedAmount", () => {
 	const originalPlan: SubscriptionPlanSchema = {
@@ -92,22 +109,5 @@ describe("calculateProratedAmount", () => {
 		const expectedAmount = newProratedCharge - originalProratedRefund;
 
 		expect(result).toBeCloseTo(expectedAmount, 2);
-	});
-});
-
-describe("calculateProratedCharge", () => {
-	it("should calculate prorated charge correctly for a partial month", () => {
-		const fullBillingAmount = 90;
-		const changeDate = new Date("2024-10-10"); // 10th day of a 30-day month
-		const result = calculateProratedCharge({
-			fullBillingAmount,
-			billing_cycle: "monthly",
-			changeDate,
-		});
-
-		// Expected prorated charge: $3 per day * 21 days = $63
-		const expectedAmount = 63;
-
-		expect(result.toNumber()).toBeCloseTo(expectedAmount, 2);
 	});
 });

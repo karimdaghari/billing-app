@@ -7,7 +7,10 @@ export const InvoiceSchema = BaseSchema.extend({
 		.uuid()
 		.describe("The id of the customer associated with the invoice"),
 	amount: z.number().positive().describe("Total amount due"),
-	due_date: z.string().datetime().describe("The date the payment is due"),
+	due_date: z.string().date().describe("The date the payment is due").openapi({
+		example: "2024-04-20",
+		format: "date",
+	}),
 	payment_status: z
 		.enum(["pending", "paid", "failed"])
 		.describe("Status of the payment"),

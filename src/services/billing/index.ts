@@ -4,10 +4,10 @@ import {
 	differenceInDays,
 	endOfMonth,
 	getMonth,
+	lightFormat,
 	startOfMonth,
 	startOfYear,
 } from "date-fns";
-import BigNumber from "bignumber.js";
 import { SubscriptionPlanSchema } from "@/db/models/subscription-plan";
 
 /**
@@ -22,17 +22,22 @@ import { SubscriptionPlanSchema } from "@/db/models/subscription-plan";
 export function getBillingCycleEndDate(
 	currentDate: Date,
 	billingCycle: z.infer<typeof SubscriptionPlanSchema>["billing_cycle"],
-): Date {
+): string {
+	let endDate: Date;
 	if (billingCycle === "monthly") {
 		// Check if it's February
 		if (getMonth(currentDate) === 1) {
 			// Get the last day of February
-			return endOfMonth(currentDate);
+			endDate = endOfMonth(currentDate);
+		} else {
+			// For other months, use the standard 30-day approach
+			endDate = addDays(startOfMonth(currentDate), 30);
 		}
-		// For other months, use the standard 30-day approach
-		return addDays(startOfMonth(currentDate), 30);
+	} else {
+		endDate = addDays(startOfYear(currentDate), 365);
 	}
-	return addDays(startOfYear(currentDate), 365);
+
+	return lightFormat(endDate, "yyyy-MM-dd");
 }
 
 const CalculateProratedAmountParamsSchema = z.object({
@@ -73,7 +78,7 @@ export function calculateProratedAmount(
 		changeDate,
 	});
 
-	return proratedCharge.minus(proratedRefund).toNumber();
+	return proratedCharge - proratedRefund;
 }
 
 const ProratedChargeParamsSchema = z
@@ -100,7 +105,7 @@ type ProratedChargeParams = z.infer<typeof ProratedChargeParamsSchema>;
  */
 export const calculateProratedCharge = (
 	params: ProratedChargeParams,
-): BigNumber => {
+): number => {
 	const { billing_cycle, changeDate, fullBillingAmount } =
 		ProratedChargeParamsSchema.parse(params);
 
@@ -110,15 +115,13 @@ export const calculateProratedCharge = (
 	// Calculate the end date of the current billing cycle
 	const billingCycleEndDate = getBillingCycleEndDate(changeDate, billing_cycle);
 	// Calculate the number of days remaining in the billing cycle
-	const remainingDays = differenceInDays(billingCycleEndDate, changeDate) + 1;
+	const remainingDays = differenceInDays(billingCycleEndDate, changeDate);
 
 	// Calculate the daily rate for the subscription
-	const dailyRate = new BigNumber(fullBillingAmount).dividedBy(
-		billingCycleLength,
-	);
+	const dailyRate = fullBillingAmount / billingCycleLength;
 
 	// Calculate the prorated charge by multiplying the daily rate by the remaining days
-	const proratedCharge = dailyRate.multipliedBy(remainingDays);
+	const proratedCharge = dailyRate * remainingDays;
 
 	return proratedCharge;
 };

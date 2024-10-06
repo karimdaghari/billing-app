@@ -1,4 +1,4 @@
-import { createAppInstance } from "@/lib/app";
+import { createAppInstance, ErrorSchema, ResponseSchema } from "@/lib/app";
 import {
 	SubscriptionPlanInput,
 	SubscriptionPlanSchema,
@@ -49,7 +49,23 @@ const post = createRoute({
 			description: "Creates a new subscription plan",
 			content: {
 				"application/json": {
-					schema: SubscriptionPlanSchema.nullable(),
+					schema: SubscriptionPlanSchema,
+				},
+			},
+		},
+		400: {
+			description: "Subscription plan already exists",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
+		},
+		500: {
+			description: "Failed to create subscription plan",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
 				},
 			},
 		},
@@ -66,7 +82,7 @@ subscriptionPlanRouter.openapi(post, async (c) => {
 			(plan) =>
 				plan.name === input.name &&
 				plan.billing_cycle === input.billing_cycle &&
-				plan.price === input.price,
+				plan.status === input.status,
 		)
 	) {
 		throw new HTTPException(400, {
@@ -88,17 +104,17 @@ subscriptionPlanRouter.openapi(post, async (c) => {
 
 const patch = createRoute({
 	method: "patch",
-	path: "/{id}",
+	path: "/{subscription_plan_id}",
 	summary: "Update a subscription plan",
 	description: "Updates a subscription plan with the provided details",
 	request: {
 		params: z.object({
-			id: z
+			subscription_plan_id: z
 				.string()
 				.uuid()
 				.openapi({
 					param: {
-						name: "id",
+						name: "subscription_plan_id",
 						in: "path",
 						required: true,
 					},
@@ -117,7 +133,15 @@ const patch = createRoute({
 			description: "Updates a subscription plan",
 			content: {
 				"application/json": {
-					schema: z.null(),
+					schema: SubscriptionPlanSchema,
+				},
+			},
+		},
+		500: {
+			description: "Failed to update subscription plan",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
 				},
 			},
 		},
@@ -125,27 +149,37 @@ const patch = createRoute({
 });
 
 subscriptionPlanRouter.openapi(patch, async (c) => {
-	const { id } = c.req.valid("param");
+	const { subscription_plan_id } = c.req.valid("param");
 	const input = c.req.valid("json");
 
-	await c.var.db.update("subscriptionPlan", id, input);
+	const res = await c.var.db.update(
+		"subscriptionPlan",
+		subscription_plan_id,
+		input,
+	);
 
-	return c.json(null, 200);
+	if (!res) {
+		throw new HTTPException(500, {
+			message: "Failed to update subscription plan",
+		});
+	}
+
+	return c.json(res, 200);
 });
 
 const get = createRoute({
 	method: "get",
-	path: "/{id}",
+	path: "/{subscription_plan_id}",
 	summary: "Get a subscription plan by ID",
 	description: "Retrieves a subscription plan by its ID",
 	request: {
 		params: z.object({
-			id: z
+			subscription_plan_id: z
 				.string()
 				.uuid()
 				.openapi({
 					param: {
-						name: "id",
+						name: "subscription_plan_id",
 						in: "path",
 						required: true,
 					},
@@ -157,7 +191,15 @@ const get = createRoute({
 			description: "Returns a subscription plan",
 			content: {
 				"application/json": {
-					schema: SubscriptionPlanSchema.nullable(),
+					schema: SubscriptionPlanSchema,
+				},
+			},
+		},
+		404: {
+			description: "Subscription plan not found",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
 				},
 			},
 		},
@@ -165,25 +207,31 @@ const get = createRoute({
 });
 
 subscriptionPlanRouter.openapi(get, async (c) => {
-	const { id } = c.req.valid("param");
-	const res = await c.var.db.get("subscriptionPlan", id);
+	const { subscription_plan_id } = c.req.valid("param");
+	const res = await c.var.db.get("subscriptionPlan", subscription_plan_id);
+
+	if (!res) {
+		throw new HTTPException(404, {
+			message: "Subscription plan not found",
+		});
+	}
 
 	return c.json(res, 200);
 });
 
 const del = createRoute({
 	method: "delete",
-	path: "/{id}",
+	path: "/{subscription_plan_id}",
 	summary: "Delete a subscription plan by ID",
 	description: "Deletes a subscription plan by its ID",
 	request: {
 		params: z.object({
-			id: z
+			subscription_plan_id: z
 				.string()
 				.uuid()
 				.openapi({
 					param: {
-						name: "id",
+						name: "subscription_plan_id",
 						in: "path",
 						required: true,
 					},
@@ -195,7 +243,23 @@ const del = createRoute({
 			description: "Deletes a subscription plan",
 			content: {
 				"application/json": {
-					schema: z.null(),
+					schema: ResponseSchema,
+				},
+			},
+		},
+		500: {
+			description: "Failed to delete subscription plan",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
+				},
+			},
+		},
+		400: {
+			description: "Subscription plan is still being used by a customer",
+			content: {
+				"application/json": {
+					schema: ErrorSchema,
 				},
 			},
 		},
@@ -203,7 +267,33 @@ const del = createRoute({
 });
 
 subscriptionPlanRouter.openapi(del, async (c) => {
-	const { id } = c.req.valid("param");
-	await c.var.db.delete("subscriptionPlan", id);
-	return c.json(null, 200);
+	const { subscription_plan_id } = c.req.valid("param");
+
+	const allCustomers = await c.var.db.getAll("customer");
+
+	if (
+		allCustomers.some(
+			(customer) => customer.subscription_plan_id === subscription_plan_id,
+		)
+	) {
+		throw new HTTPException(400, {
+			message: "Subscription plan is still being used by a customer",
+		});
+	}
+
+	const res = await c.var.db.delete("subscriptionPlan", subscription_plan_id);
+
+	if (!res) {
+		throw new HTTPException(500, {
+			message: "Failed to delete subscription plan",
+		});
+	}
+
+	return c.json(
+		{
+			code: 200,
+			message: "OK",
+		},
+		200,
+	);
 });

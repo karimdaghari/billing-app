@@ -12,11 +12,11 @@ export const PaymentSchema = BaseSchema.extend({
 		.describe("Method of payment"),
 	payment_date: z
 		.string()
-		.datetime()
+		.date()
 		.describe("Date when the payment was made")
 		.openapi({
-			example: "2024-02-20T10:00:00.000Z",
-			format: "date-time",
+			example: "2024-04-20",
+			format: "date",
 		}),
 }).openapi("Payment");
 

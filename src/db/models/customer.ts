@@ -15,6 +15,7 @@ export const CustomerSchema = BaseSchema.extend({
 
 export const CustomerInput = CustomerSchema.omit({
 	id: true,
+	subscription_status: true,
 }).openapi("CustomerInput");
 
 export type CustomerInput = z.infer<typeof CustomerInput>;

@@ -1,7 +1,7 @@
 import type { CustomerSchema } from "@/db/models/customer";
 import type { InvoiceSchema } from "@/db/models/invoice";
 import { PaymentSchema } from "@/db/models/payment";
-import type { HonoContext } from "@/lib/app";
+import type { AppContext } from "@/lib/app";
 import type { z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 
@@ -12,7 +12,7 @@ export async function processPayment({
 	ctx,
 	input,
 }: {
-	ctx: HonoContext;
+	ctx: AppContext;
 	input: Input;
 }) {
 	const { id } = Input.parse(input);
@@ -96,7 +96,7 @@ export async function processPayment({
 }
 
 interface HandleGatewayPaymentParams {
-	c: HonoContext;
+	c: AppContext;
 	input: {
 		payment: PaymentSchema;
 		invoice: InvoiceSchema;
