@@ -11,4 +11,4 @@ crons = ["0 10 * * *", "0 11 * * *"]
 
 [[kv_namespaces]]
 binding = "DATA_STORE"
-id = "8b746b1f95aa44f9972ffc24ae71f7fc"
+id = "d7c76fb2819f47a3bf7a53c72fa642eb"

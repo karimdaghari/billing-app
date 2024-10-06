@@ -8,7 +8,10 @@
 		"dev": "wrangler dev",
 		"deploy": "wrangler deploy --minify",
 		"test": "vitest",
-		"typecheck": "tsc --noEmit --pretty"
+		"typecheck": "tsc --noEmit --pretty",
+		"test:scheduled": "wrangler dev --test-scheduled",
+		"test:scheduled-invoices": "curl \"http://localhost:4200/__scheduled?cron=0+10+*+*+*\"",
+		"test:scheduled-failed-payments": "curl \"http://localhost:4200/__scheduled?cron=0+11+*+*+*\""
 	},
 	"dependencies": {
 		"@hono/zod-openapi": "0.16.2",

@@ -5,15 +5,14 @@ import { processPayment } from "@/services/payment";
 
 export async function retryFailedPayments(env: Env) {
 	const db = new KVDB(env.DATA_STORE);
-	const handleSendEmail: AppContext["var"]["sendEmail"] = async (params) => {
-		await sendEmail({
+	const handleSendEmail: AppContext["var"]["sendEmail"] = (params) =>
+		sendEmail({
 			...params,
 			config: {
 				API_KEY: env.SENDGRID_API_KEY,
 				FROM_EMAIL_ADDRESS: env.FROM_EMAIL_ADDRESS,
 			},
 		});
-	};
 
 	const [allInvoices, allPayments] = await Promise.all([
 		db.getAll("invoice"),
@@ -22,9 +21,18 @@ export async function retryFailedPayments(env: Env) {
 	const failedInvoices = allInvoices.filter(
 		(invoice) => invoice.payment_status === "failed",
 	);
+
+	if (failedInvoices.length === 0) {
+		return;
+	}
+
 	const failedPayments = allPayments.filter((payment) =>
 		failedInvoices.some((invoice) => invoice.id === payment.invoice_id),
 	);
+
+	if (failedPayments.length === 0) {
+		return;
+	}
 
 	const promises = failedPayments.map((payment) =>
 		processPayment({
