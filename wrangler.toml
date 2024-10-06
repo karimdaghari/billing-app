@@ -6,6 +6,9 @@ compatibility_flags = [ "nodejs_compat" ]
 [dev]
 port = 4200
 
+[triggers]
+crons = ["0 10 * * *", "0 11 * * *"]
+
 [[kv_namespaces]]
 binding = "DATA_STORE"
 id = "8b746b1f95aa44f9972ffc24ae71f7fc"

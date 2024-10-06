@@ -2,9 +2,12 @@ import { z } from "zod";
 import {
 	add,
 	differenceInDays,
+	formatISO,
 	getDaysInMonth,
 	getDaysInYear,
-	lightFormat,
+	isAfter,
+	isBefore,
+	isSameDay,
 } from "date-fns";
 import { SubscriptionPlanSchema } from "@/db/models/subscription-plan";
 
@@ -26,13 +29,17 @@ export function getBillingCycleEndDate(
 			? add(currentDate, { months: 1 })
 			: add(currentDate, { years: 1 });
 
-	return lightFormat(endDate, "yyyy-MM-dd");
+	return formatISO(endDate, {
+		representation: "date",
+	});
 }
 
 const CalculateProratedAmountParamsSchema = z.object({
 	originalPlan: SubscriptionPlanSchema,
 	newPlan: SubscriptionPlanSchema,
+	startDate: z.date(),
 	changeDate: z.date(),
+	endDate: z.date(),
 });
 
 type CalculateProratedAmountParams = z.infer<
@@ -49,34 +56,61 @@ type CalculateProratedAmountParams = z.infer<
  * @returns The net prorated amount as a number.
  */
 export function calculateProratedAmount(
-	params: CalculateProratedAmountParams,
+	input: CalculateProratedAmountParams,
 ): number {
-	const { originalPlan, newPlan, changeDate } =
-		CalculateProratedAmountParamsSchema.parse(params);
-	const { billing_cycle } = newPlan;
+	const { originalPlan, newPlan, startDate, changeDate, endDate } =
+		CalculateProratedAmountParamsSchema.parse(input);
 
-	const proratedRefund = calculateProratedCharge({
+	if (
+		isBefore(changeDate, startDate) ||
+		isAfter(changeDate, endDate) ||
+		isBefore(endDate, startDate)
+	) {
+		throw new Error("Invalid date range");
+	}
+
+	if (originalPlan.billing_cycle !== newPlan.billing_cycle) {
+		throw new Error("Plans must have the same billing cycle");
+	}
+
+	if (
+		originalPlan.billing_cycle !== "monthly" &&
+		originalPlan.billing_cycle !== "yearly"
+	) {
+		throw new Error("Invalid billing cycle");
+	}
+
+	const originalPlanProratedAmount = calculateProratedCharge({
 		fullBillingAmount: originalPlan.price,
-		billing_cycle,
-		changeDate,
-		startDate: changeDate,
+		billing_cycle: originalPlan.billing_cycle,
+		startDate: startDate,
+		endDate: changeDate,
 	});
 
-	const proratedCharge = calculateProratedCharge({
-		fullBillingAmount: newPlan.price,
-		billing_cycle,
-		changeDate,
-		startDate: changeDate,
-	});
+	// If the change date is the same as the end date, don't charge for the new plan
+	const newPlanProratedAmount = isSameDay(changeDate, endDate)
+		? 0
+		: calculateProratedCharge({
+				fullBillingAmount: newPlan.price,
+				billing_cycle: newPlan.billing_cycle,
+				startDate: changeDate,
+				endDate: endDate,
+			});
 
-	return proratedCharge - proratedRefund;
+	// For upgrades, charge the difference
+	if (!isSameDay(changeDate, endDate) && newPlan.price > originalPlan.price) {
+		return newPlanProratedAmount - originalPlanProratedAmount;
+	}
+
+	// For downgrades or no change, calculate the refund or charge
+	return originalPlanProratedAmount - newPlanProratedAmount;
 }
 
 const ProratedChargeParamsSchema = z
 	.object({
 		fullBillingAmount: z.number(),
-		changeDate: z.date(),
 		startDate: z.date(),
+		endDate: z.date(),
 	})
 	.merge(SubscriptionPlanSchema.pick({ billing_cycle: true }));
 
@@ -85,18 +119,23 @@ type ProratedChargeParams = z.infer<typeof ProratedChargeParamsSchema>;
 export const calculateProratedCharge = (
 	params: ProratedChargeParams,
 ): number => {
-	const { billing_cycle, changeDate, fullBillingAmount, startDate } =
+	const { billing_cycle, endDate, fullBillingAmount, startDate } =
 		ProratedChargeParamsSchema.parse(params);
 
-	const totalDays =
+	const totalDays = differenceInDays(endDate, startDate) + 1;
+	const billingPeriodDays =
 		billing_cycle === "monthly"
 			? getDaysInMonth(startDate)
 			: getDaysInYear(startDate);
 
-	const dailyRate = fullBillingAmount / totalDays;
-	const daysUsed = differenceInDays(changeDate, startDate) + 1;
+	const dailyRate = fullBillingAmount / billingPeriodDays;
 
-	const proratedCharge = dailyRate * daysUsed;
+	// If the change is on the last day of the cycle, return 0
+	if (totalDays === 0 || isSameDay(startDate, endDate)) {
+		return 0;
+	}
+
+	const proratedCharge = dailyRate * totalDays;
 
 	return Number(proratedCharge.toFixed(2));
 };

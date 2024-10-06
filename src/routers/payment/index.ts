@@ -101,7 +101,11 @@ paymentRouter.openapi(post, async (c) => {
 	}
 
 	try {
-		await processPayment({ ctx: c, input: { id: newPaymentId } });
+		await processPayment({
+			db: c.var.db,
+			sendEmail: c.var.sendEmail,
+			input: { id: newPaymentId },
+		});
 	} catch (error) {
 		// We don't need to do anything as the payment will be retried up to 3 times
 	}

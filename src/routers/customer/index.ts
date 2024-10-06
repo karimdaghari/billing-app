@@ -2,7 +2,10 @@ import { createAppInstance, ErrorSchema, ResponseSchema } from "@/lib/app";
 import { CustomerInput, CustomerSchema } from "@/db/models/customer";
 import { createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
-import { checkCustomerEmailIsUnique } from "./lib";
+import {
+	checkCustomerEmailIsUnique,
+	createCustomerSubscriptionPlan,
+} from "./lib";
 
 export const customerRouter = createAppInstance();
 
@@ -83,7 +86,9 @@ const post = createRoute({
 		body: {
 			content: {
 				"application/json": {
-					schema: CustomerInput,
+					schema: CustomerInput.extend({
+						subscription_plan_id: z.string().uuid(),
+					}),
 				},
 			},
 		},
@@ -127,23 +132,6 @@ const post = createRoute({
 customerRouter.openapi(post, async (c) => {
 	const input = c.req.valid("json");
 
-	const plan = await c.var.db.get(
-		"subscriptionPlan",
-		input.subscription_plan_id,
-	);
-
-	if (!plan) {
-		throw new HTTPException(404, {
-			message: "Subscription plan not found",
-		});
-	}
-
-	if (plan.status === "inactive") {
-		throw new HTTPException(400, {
-			message: "Subscription plan is inactive",
-		});
-	}
-
 	const allCustomers = await c.var.db.getAll("customer");
 
 	if (!checkCustomerEmailIsUnique({ allCustomers, email: input.email })) {
@@ -152,12 +140,23 @@ customerRouter.openapi(post, async (c) => {
 		});
 	}
 
-	const id = await c.var.db.insert("customer", {
-		...input,
-		subscription_status: "active",
-	});
+	const customerId = await c.var.db.insert("customer", input);
 
-	const res = await c.var.db.get("customer", id);
+	try {
+		await createCustomerSubscriptionPlan({
+			db: c.var.db,
+			input: {
+				customer_id: customerId,
+				subscription_plan_id: input.subscription_plan_id,
+			},
+		});
+	} catch (error) {
+		// If there's an error creating the subscription plan, delete the customer
+		await c.var.db.delete("customer", customerId);
+		throw error;
+	}
+
+	const res = await c.var.db.get("customer", customerId);
 
 	if (!res) {
 		throw new HTTPException(500, {
@@ -185,9 +184,7 @@ const patch = createRoute({
 		body: {
 			content: {
 				"application/json": {
-					schema: CustomerInput.omit({
-						subscription_plan_id: true,
-					}).partial(),
+					schema: CustomerInput.partial(),
 				},
 			},
 		},
@@ -275,6 +272,19 @@ const del = createRoute({
 
 customerRouter.openapi(del, async (c) => {
 	const { customer_id } = c.req.valid("param");
+
+	const customersWithSubscriptionPlans = await c.var.db.getAll(
+		"customerSubscriptionPlan",
+	);
+	const customerSubscriptionPlan = customersWithSubscriptionPlans.find(
+		(csp) => csp.customer_id === customer_id,
+	);
+
+	if (customerSubscriptionPlan) {
+		throw new HTTPException(400, {
+			message: "Customer has an active subscription plan",
+		});
+	}
 
 	const res = await c.var.db.delete("customer", customer_id);
 	if (!res) {

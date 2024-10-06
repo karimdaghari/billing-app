@@ -1,9 +1,9 @@
 import type { AppEnv } from "@/lib/app";
-import { type EmailParams, sendEmail } from "@/services/email";
+import { type SendEmailParams, sendEmail } from "@/services/email";
 import { createMiddleware } from "hono/factory";
 
 export const sendEmailMiddleware = createMiddleware<AppEnv>(async (c, next) => {
-	c.set("sendEmail", (params: Omit<EmailParams, "config">) =>
+	c.set("sendEmail", (params: Omit<SendEmailParams, "config">) =>
 		sendEmail({
 			...params,
 			config: {

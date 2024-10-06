@@ -12,8 +12,11 @@ const app = createAppInstance();
 
 app
 	.route("/customer", customerRouter)
-	.route("/customer/:id/subscription-plan", customerSubscriptionPlanRouter)
-	.route("/customer/:id/invoices", customerInvoiceRouter)
+	.route(
+		"/customer/:customer_id/subscription-plan",
+		customerSubscriptionPlanRouter,
+	)
+	.route("/customer/:customer_id/invoices", customerInvoiceRouter)
 	.route("/subscription-plan", subscriptionPlanRouter)
 	.route("/invoice", invoiceRouter)
 	.route("/payment", paymentRouter);

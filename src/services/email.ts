@@ -3,7 +3,7 @@ import sgMail, { type MailDataRequired } from "@sendgrid/mail";
 /**
  * Interface for email parameters
  */
-export interface EmailParams {
+export interface SendEmailParams {
 	to: string;
 	subject: string;
 	body: string;
@@ -25,7 +25,7 @@ export async function sendEmail({
 	body,
 	type,
 	config,
-}: EmailParams): Promise<void> {
+}: SendEmailParams): Promise<void> {
 	sgMail.setApiKey(config.API_KEY);
 
 	const message = {

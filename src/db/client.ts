@@ -3,6 +3,7 @@ import { CustomerSchema } from "./models/customer";
 import { InvoiceSchema } from "./models/invoice";
 import { PaymentSchema } from "./models/payment";
 import { SubscriptionPlanSchema } from "./models/subscription-plan";
+import { CustomerSubscriptionPlanSchema } from "./models/customer-subscription-plan";
 
 // Define a type for the KV namespace
 interface KVNamespace {
@@ -21,7 +22,12 @@ interface KVNamespace {
 }
 
 // Define a type for our schemas
-type SchemaType = "customer" | "subscriptionPlan" | "invoice" | "payment";
+type SchemaType =
+	| "customer"
+	| "subscriptionPlan"
+	| "invoice"
+	| "payment"
+	| "customerSubscriptionPlan";
 
 // Define a mapping of schema types to their respective Zod schemas
 const entitySchemaMap = {
@@ -29,6 +35,7 @@ const entitySchemaMap = {
 	subscriptionPlan: SubscriptionPlanSchema,
 	invoice: InvoiceSchema,
 	payment: PaymentSchema,
+	customerSubscriptionPlan: CustomerSubscriptionPlanSchema,
 } as const;
 
 // Infer the type of each schema
@@ -46,6 +53,7 @@ export class KVDB {
 		subscriptionPlan: "subscription_plan:",
 		invoice: "invoice:",
 		payment: "payment:",
+		customerSubscriptionPlan: "customer_subscription_plan:",
 	};
 
 	constructor(private namespace: KVNamespace) {}

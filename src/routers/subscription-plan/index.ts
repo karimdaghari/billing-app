@@ -269,11 +269,15 @@ const del = createRoute({
 subscriptionPlanRouter.openapi(del, async (c) => {
 	const { subscription_plan_id } = c.req.valid("param");
 
-	const allCustomers = await c.var.db.getAll("customer");
+	const allCustomersSubscriptionsPlans = await c.var.db.getAll(
+		"customerSubscriptionPlan",
+	);
 
 	if (
-		allCustomers.some(
-			(customer) => customer.subscription_plan_id === subscription_plan_id,
+		allCustomersSubscriptionsPlans.some(
+			(customer) =>
+				customer.subscription_plan_id === subscription_plan_id &&
+				customer.invoice_id !== null,
 		)
 	) {
 		throw new HTTPException(400, {

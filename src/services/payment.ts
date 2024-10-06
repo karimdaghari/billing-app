@@ -9,15 +9,17 @@ const Input = PaymentSchema.pick({ id: true });
 type Input = z.infer<typeof Input>;
 
 export async function processPayment({
-	ctx,
+	db,
+	sendEmail,
 	input,
 }: {
-	ctx: AppContext;
+	db: AppContext["var"]["db"];
+	sendEmail: AppContext["var"]["sendEmail"];
 	input: Input;
 }) {
 	const { id } = Input.parse(input);
 
-	const payment = await ctx.var.db.get("payment", id);
+	const payment = await db.get("payment", id);
 
 	if (!payment) {
 		throw new HTTPException(404, {
@@ -25,7 +27,7 @@ export async function processPayment({
 		});
 	}
 
-	const invoice = await ctx.var.db.get("invoice", payment.invoice_id);
+	const invoice = await db.get("invoice", payment.invoice_id);
 
 	if (!invoice) {
 		throw new HTTPException(404, {
@@ -38,7 +40,7 @@ export async function processPayment({
 	}
 
 	if (invoice.payment_retry_count >= 3) {
-		await ctx.var.db.update("invoice", invoice.id, {
+		await db.update("invoice", invoice.id, {
 			payment_status: "failed",
 			invoice_status: "overdue",
 		});
@@ -47,7 +49,7 @@ export async function processPayment({
 		});
 	}
 
-	const customer = await ctx.var.db.get("customer", invoice.customer_id);
+	const customer = await db.get("customer", invoice.customer_id);
 
 	if (!customer) {
 		throw new HTTPException(404, {
@@ -55,16 +57,13 @@ export async function processPayment({
 		});
 	}
 
-	const sendEmail = ctx.var.sendEmail;
-
 	try {
 		await handleGatewayPayment({
-			c: ctx,
 			input: { payment, invoice, customer },
 		});
 
 		await Promise.all([
-			ctx.var.db.update("invoice", invoice.id, {
+			db.update("invoice", invoice.id, {
 				payment_status: "paid",
 				invoice_status: "paid",
 			}),
@@ -77,7 +76,7 @@ export async function processPayment({
 		]);
 	} catch (error) {
 		await Promise.all([
-			ctx.var.db.update("invoice", invoice.id, {
+			db.update("invoice", invoice.id, {
 				payment_status: "failed",
 				payment_retry_count: invoice.payment_retry_count + 1,
 			}),
@@ -96,7 +95,6 @@ export async function processPayment({
 }
 
 interface HandleGatewayPaymentParams {
-	c: AppContext;
 	input: {
 		payment: PaymentSchema;
 		invoice: InvoiceSchema;
@@ -104,10 +102,7 @@ interface HandleGatewayPaymentParams {
 	};
 }
 
-const handleGatewayPayment = async ({
-	c,
-	input,
-}: HandleGatewayPaymentParams) => {
+const handleGatewayPayment = async ({ input }: HandleGatewayPaymentParams) => {
 	// Here we would probably call the payment gateway's API to process the payment (e.g., Stripe, PayPal, etc.)
 	throw new Error("Not implemented");
 };

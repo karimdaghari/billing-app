@@ -5,6 +5,7 @@ import {
 	getBillingCycleEndDate,
 } from ".";
 import type { SubscriptionPlanSchema } from "@/db/models/subscription-plan";
+import { differenceInDays, getDaysInYear } from "date-fns";
 
 describe("getBillingCycleEndDate", () => {
 	it("should return the correct end date for monthly billing cycle", () => {
@@ -54,103 +55,280 @@ describe("calculateProratedCharge", () => {
 		const result = calculateProratedCharge({
 			fullBillingAmount,
 			billing_cycle: "monthly",
-			changeDate,
 			startDate,
+			endDate: changeDate,
 		});
 
 		expect(result).toBeCloseTo(expectedAmount, 2);
 	});
+
+	it("should calculate prorated charge correctly for a full month", () => {
+		const fullBillingAmount = 100;
+		const startDate = new Date("2024-10-01");
+		const endDate = new Date("2024-10-31");
+
+		const result = calculateProratedCharge({
+			fullBillingAmount,
+			billing_cycle: "monthly",
+			startDate,
+			endDate,
+		});
+
+		expect(result).toBeCloseTo(100, 2);
+	});
+
+	it("should calculate prorated charge correctly for a partial year", () => {
+		const fullBillingAmount = 1200;
+		const startDate = new Date("2024-01-01");
+		const endDate = new Date("2024-06-30");
+		const diffDays = differenceInDays(endDate, startDate) + 1;
+		const expectedAmount = Number(
+			((fullBillingAmount / getDaysInYear(startDate)) * diffDays).toFixed(2),
+		);
+
+		const result = calculateProratedCharge({
+			fullBillingAmount,
+			billing_cycle: "yearly",
+			startDate,
+			endDate,
+		});
+
+		expect(result).toBeCloseTo(expectedAmount, 2);
+	});
+
+	it("should handle leap years correctly", () => {
+		const fullBillingAmount = 366;
+		const startDate = new Date("2024-01-01");
+		const endDate = new Date("2024-12-31");
+
+		const result = calculateProratedCharge({
+			fullBillingAmount,
+			billing_cycle: "yearly",
+			startDate,
+			endDate,
+		});
+
+		expect(result).toBeCloseTo(366, 2);
+	});
 });
 
-describe.skip("calculateProratedAmount", () => {
-	const originalPlan: SubscriptionPlanSchema = {
+describe("calculateProratedAmount", () => {
+	const basicPlan: SubscriptionPlanSchema = {
 		id: crypto.randomUUID(),
 		name: "Basic",
-		price: 100,
+		price: 10,
 		billing_cycle: "monthly",
 		status: "active",
 	};
 
-	const newPlan: SubscriptionPlanSchema = {
+	const proPlan: SubscriptionPlanSchema = {
 		id: crypto.randomUUID(),
 		name: "Pro",
-		price: 200,
+		price: 20,
 		billing_cycle: "monthly",
 		status: "active",
 	};
 
 	it("should handle change on the first day of the cycle", () => {
+		const startDate = new Date("2024-10-01");
 		const changeDate = new Date("2024-10-01");
+		const endDate = new Date(getBillingCycleEndDate(startDate, "monthly"));
 		const result = calculateProratedAmount({
-			originalPlan,
-			newPlan,
+			originalPlan: basicPlan,
+			newPlan: proPlan,
 			changeDate,
+			startDate,
+			endDate,
 		});
-		const expectedAmount = 200 - 100;
+		const originalPlanProratedAmount = calculateProratedCharge({
+			fullBillingAmount: basicPlan.price,
+			billing_cycle: "monthly",
+			startDate: startDate,
+			endDate: changeDate,
+		});
+		const proPlanProratedAmount = calculateProratedCharge({
+			fullBillingAmount: proPlan.price,
+			billing_cycle: "monthly",
+			startDate: changeDate,
+			endDate,
+		});
+		const expectedAmount = proPlanProratedAmount - originalPlanProratedAmount;
 		expect(result).toBeCloseTo(expectedAmount, 2);
 	});
 
 	it("should calculate prorated amount correctly for upgrade", () => {
+		const startDate = new Date("2024-09-01");
 		const changeDate = new Date("2024-09-10");
+		const endDate = new Date(getBillingCycleEndDate(startDate, "monthly"));
 		const result = calculateProratedAmount({
-			originalPlan,
-			newPlan,
+			originalPlan: basicPlan,
+			newPlan: proPlan,
+			startDate,
+			endDate,
 			changeDate,
 		});
-		const expectedAmount = (200 - 100) * (21 / 30); // 21 days remaining in a 30-day cycle
+		const originalPlanProratedAmount = calculateProratedCharge({
+			fullBillingAmount: basicPlan.price,
+			billing_cycle: "monthly",
+			startDate: startDate,
+			endDate: changeDate,
+		});
+		const proPlanProratedAmount = calculateProratedCharge({
+			fullBillingAmount: proPlan.price,
+			billing_cycle: "monthly",
+			startDate: changeDate,
+			endDate,
+		});
+		const expectedAmount = proPlanProratedAmount - originalPlanProratedAmount;
 		expect(result).toBeCloseTo(expectedAmount, 2);
 	});
 
 	it("should calculate prorated amount correctly for downgrade", () => {
+		const startDate = new Date("2024-10-01");
 		const changeDate = new Date("2024-10-15");
+		const endDate = new Date("2024-10-31");
 		const result = calculateProratedAmount({
-			originalPlan: newPlan,
-			newPlan: originalPlan,
+			originalPlan: proPlan,
+			newPlan: basicPlan,
 			changeDate,
+			startDate,
+			endDate,
 		});
-		const expectedAmount = (100 - 200) * (16 / 30); // 16 days remaining in a 30-day cycle
+		const originalPlanProratedAmount = calculateProratedCharge({
+			fullBillingAmount: proPlan.price,
+			billing_cycle: "monthly",
+			startDate: startDate,
+			endDate: changeDate,
+		});
+		const basicPlanProratedAmount = calculateProratedCharge({
+			fullBillingAmount: basicPlan.price,
+			billing_cycle: "monthly",
+			startDate: changeDate,
+			endDate,
+		});
+		const expectedAmount = originalPlanProratedAmount - basicPlanProratedAmount;
 		expect(result).toBeCloseTo(expectedAmount, 2);
 	});
 
 	it("should handle change on the last day of the cycle", () => {
-		const changeDate = new Date("2024-10-30");
+		const startDate = new Date("2024-10-01");
+		const changeDate = new Date("2024-10-31");
+		const endDate = new Date("2024-10-31");
 		const result = calculateProratedAmount({
-			originalPlan,
-			newPlan,
+			originalPlan: basicPlan,
+			newPlan: proPlan,
 			changeDate,
+			startDate,
+			endDate,
 		});
-		const expectedAmount = (200 - 100) * (1 / 30); // 1 day remaining in a 30-day cycle
+		const expectedAmount = 10;
 		expect(result).toBeCloseTo(expectedAmount, 2);
 	});
 
 	it("should handle yearly billing cycle", () => {
 		const yearlyOriginalPlan: SubscriptionPlanSchema = {
-			...originalPlan,
+			...basicPlan,
 			billing_cycle: "yearly",
 			price: 1000,
 		};
 		const yearlyNewPlan: SubscriptionPlanSchema = {
-			...newPlan,
+			...proPlan,
 			billing_cycle: "yearly",
 			price: 2000,
 		};
+		const startDate = new Date("2024-01-01");
 		const changeDate = new Date("2024-07-01");
+		const endDate = new Date(getBillingCycleEndDate(startDate, "yearly"));
 		const result = calculateProratedAmount({
 			originalPlan: yearlyOriginalPlan,
 			newPlan: yearlyNewPlan,
 			changeDate,
+			startDate,
+			endDate,
 		});
 
-		// Calculate the number of days remaining in the year
-		const daysInYear = 365;
-		const daysRemaining = daysInYear - 182; // July 1st is the 183rd day of the year (182 days have passed)
-
-		// Calculate expected prorated amounts
-		const originalProratedRefund = (1000 / daysInYear) * daysRemaining;
-		const newProratedCharge = (2000 / daysInYear) * daysRemaining;
-
-		const expectedAmount = newProratedCharge - originalProratedRefund;
+		const originalPlanProratedAmount = calculateProratedCharge({
+			fullBillingAmount: yearlyOriginalPlan.price,
+			billing_cycle: "yearly",
+			startDate: startDate,
+			endDate: changeDate,
+		});
+		const newPlanProratedAmount = calculateProratedCharge({
+			fullBillingAmount: yearlyNewPlan.price,
+			billing_cycle: "yearly",
+			startDate: changeDate,
+			endDate,
+		});
+		const expectedAmount = newPlanProratedAmount - originalPlanProratedAmount;
 
 		expect(result).toBeCloseTo(expectedAmount, 2);
+	});
+
+	it("should throw an error when changeDate is before startDate", () => {
+		const startDate = new Date("2024-10-01");
+		const changeDate = new Date("2024-09-30");
+		const endDate = new Date("2024-10-31");
+
+		expect(() =>
+			calculateProratedAmount({
+				originalPlan: basicPlan,
+				newPlan: proPlan,
+				changeDate,
+				startDate,
+				endDate,
+			}),
+		).toThrow("Invalid date range");
+	});
+
+	it("should throw an error when changeDate is after endDate", () => {
+		const startDate = new Date("2024-10-01");
+		const changeDate = new Date("2024-11-01");
+		const endDate = new Date("2024-10-31");
+
+		expect(() =>
+			calculateProratedAmount({
+				originalPlan: basicPlan,
+				newPlan: proPlan,
+				changeDate,
+				startDate,
+				endDate,
+			}),
+		).toThrow("Invalid date range");
+	});
+
+	it("should throw an error when endDate is before startDate", () => {
+		const startDate = new Date("2024-10-01");
+		const changeDate = new Date("2024-10-15");
+		const endDate = new Date("2024-09-30");
+
+		expect(() =>
+			calculateProratedAmount({
+				originalPlan: basicPlan,
+				newPlan: proPlan,
+				changeDate,
+				startDate,
+				endDate,
+			}),
+		).toThrow("Invalid date range");
+	});
+
+	it("should throw an error when plans have different billing cycles", () => {
+		const startDate = new Date("2024-10-01");
+		const changeDate = new Date("2024-10-15");
+		const endDate = new Date("2024-10-31");
+		const yearlyPlan: SubscriptionPlanSchema = {
+			...proPlan,
+			billing_cycle: "yearly",
+		};
+
+		expect(() =>
+			calculateProratedAmount({
+				originalPlan: basicPlan,
+				newPlan: yearlyPlan,
+				changeDate,
+				startDate,
+				endDate,
+			}),
+		).toThrow("Plans must have the same billing cycle");
 	});
 });

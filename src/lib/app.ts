@@ -1,27 +1,29 @@
 import { OpenAPIHono, z, type RouteHook } from "@hono/zod-openapi";
 import type { KVDB } from "../db/client";
-import type { EmailParams } from "@/services/email";
+import type { SendEmailParams } from "@/services/email";
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { dbMiddleware } from "@/middleware/db";
 import { sendEmailMiddleware } from "@/middleware/send-email";
 
+export type Env = {
+	/**
+	 * A key-value store for storing data.
+	 * @notes this store acts as our database
+	 */
+	DATA_STORE: KVNamespace;
+	SENDGRID_API_KEY: string;
+	FROM_EMAIL_ADDRESS: string;
+};
+
 export type AppEnv = {
-	Bindings: {
-		/**
-		 * A key-value store for storing data.
-		 * @notes this store acts as our database
-		 */
-		DATA_STORE: KVNamespace;
-		SENDGRID_API_KEY: string;
-		FROM_EMAIL_ADDRESS: string;
-	};
+	Bindings: Env;
 	Variables: {
 		/**
 		 * Our database client
 		 */
 		db: KVDB;
-		sendEmail: (params: Omit<EmailParams, "config">) => Promise<void>;
+		sendEmail: (params: Omit<SendEmailParams, "config">) => Promise<void>;
 	};
 };
 
