@@ -1,12 +1,10 @@
 import { z } from "zod";
 import {
-	addDays,
+	add,
 	differenceInDays,
-	endOfMonth,
-	getMonth,
+	getDaysInMonth,
+	getDaysInYear,
 	lightFormat,
-	startOfMonth,
-	startOfYear,
 } from "date-fns";
 import { SubscriptionPlanSchema } from "@/db/models/subscription-plan";
 
@@ -23,19 +21,10 @@ export function getBillingCycleEndDate(
 	currentDate: Date,
 	billingCycle: z.infer<typeof SubscriptionPlanSchema>["billing_cycle"],
 ): string {
-	let endDate: Date;
-	if (billingCycle === "monthly") {
-		// Check if it's February
-		if (getMonth(currentDate) === 1) {
-			// Get the last day of February
-			endDate = endOfMonth(currentDate);
-		} else {
-			// For other months, use the standard 30-day approach
-			endDate = addDays(startOfMonth(currentDate), 30);
-		}
-	} else {
-		endDate = addDays(startOfYear(currentDate), 365);
-	}
+	const endDate =
+		billingCycle === "monthly"
+			? add(currentDate, { months: 1 })
+			: add(currentDate, { years: 1 });
 
 	return lightFormat(endDate, "yyyy-MM-dd");
 }
@@ -70,12 +59,14 @@ export function calculateProratedAmount(
 		fullBillingAmount: originalPlan.price,
 		billing_cycle,
 		changeDate,
+		startDate: changeDate,
 	});
 
 	const proratedCharge = calculateProratedCharge({
 		fullBillingAmount: newPlan.price,
 		billing_cycle,
 		changeDate,
+		startDate: changeDate,
 	});
 
 	return proratedCharge - proratedRefund;
@@ -85,43 +76,27 @@ const ProratedChargeParamsSchema = z
 	.object({
 		fullBillingAmount: z.number(),
 		changeDate: z.date(),
+		startDate: z.date(),
 	})
 	.merge(SubscriptionPlanSchema.pick({ billing_cycle: true }));
 
 type ProratedChargeParams = z.infer<typeof ProratedChargeParamsSchema>;
 
-/**
- * Calculates the prorated charge for a subscription plan change.
- *
- * This function determines the prorated amount to charge based on the remaining days
- * in the current billing cycle after a plan change occurs.
- *
- * @param params - An object containing the parameters for the calculation
- * @param params.billing_cycle - The billing cycle of the subscription ('monthly' or 'yearly')
- * @param params.changeDate - The date when the plan change occurs
- * @param params.fullBillingAmount - The full amount for the billing cycle
- *
- * @returns A BigNumber representing the prorated charge
- */
 export const calculateProratedCharge = (
 	params: ProratedChargeParams,
 ): number => {
-	const { billing_cycle, changeDate, fullBillingAmount } =
+	const { billing_cycle, changeDate, fullBillingAmount, startDate } =
 		ProratedChargeParamsSchema.parse(params);
 
-	// Determine the length of the billing cycle in days
-	const billingCycleLength = billing_cycle === "monthly" ? 30 : 365;
+	const totalDays =
+		billing_cycle === "monthly"
+			? getDaysInMonth(startDate)
+			: getDaysInYear(startDate);
 
-	// Calculate the end date of the current billing cycle
-	const billingCycleEndDate = getBillingCycleEndDate(changeDate, billing_cycle);
-	// Calculate the number of days remaining in the billing cycle
-	const remainingDays = differenceInDays(billingCycleEndDate, changeDate);
+	const dailyRate = fullBillingAmount / totalDays;
+	const daysUsed = differenceInDays(changeDate, startDate) + 1;
 
-	// Calculate the daily rate for the subscription
-	const dailyRate = fullBillingAmount / billingCycleLength;
+	const proratedCharge = dailyRate * daysUsed;
 
-	// Calculate the prorated charge by multiplying the daily rate by the remaining days
-	const proratedCharge = dailyRate * remainingDays;
-
-	return proratedCharge;
+	return Number(proratedCharge.toFixed(2));
 };
