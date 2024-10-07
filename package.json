@@ -7,6 +7,7 @@
 	"scripts": {
 		"dev": "wrangler dev",
 		"deploy": "wrangler deploy --minify",
+		"postinstall": "cp .example.vars .dev.vars",
 		"test": "vitest",
 		"typecheck": "tsc --noEmit --pretty",
 		"test:scheduled": "wrangler dev --test-scheduled",

@@ -2,7 +2,6 @@ import { createAppInstance } from "@/lib/app";
 import { apiReference } from "@scalar/hono-api-reference";
 import { subscriptionPlanRouter } from "./subscription-plan";
 import { customerRouter } from "./customer";
-import { invoiceRouter } from "./invoice";
 import { paymentRouter } from "./payment";
 import { customerSubscriptionPlanRouter } from "./customer/subscription-plan";
 import { customerInvoiceRouter } from "./customer/invoice"; // Add this import
@@ -18,7 +17,6 @@ app
 	)
 	.route("/customer/:customer_id/invoices", customerInvoiceRouter)
 	.route("/subscription-plan", subscriptionPlanRouter)
-	.route("/invoice", invoiceRouter)
 	.route("/payment", paymentRouter);
 
 app
