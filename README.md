@@ -46,14 +46,7 @@ This project implements a simple billing api for a SaaS platform using Cloudflar
 
 ### Prerequisite
 
-Upon installation a `.dev.vars` file has been automatically created for you at the root with the following content:
-
-```text
-SENDGRID_API_KEY=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
-FROM_EMAIL_ADDRESS=hi@karimdaghari.com
-```
-
-Normally these variables would have to be communicated in a secure fashion but for the sake of the case study and given the async nature of our interaction, plus to quicken the setup experience, they're made immediately available.
+Before your run the dev server please create a `.dev.vars` file at the root with the keys communicated to you by email.
 
 ### Development
 
@@ -141,6 +134,7 @@ The project structure is organized as follows:
 - `package.json`: Project dependencies and scripts
 - `tsconfig.json`: TypeScript configuration
 - `wrangler.toml`: Cloudflare Workers configuration
+- `challenge_spec.pdf`: The spec on which this whole thing was based
 - `README.md`: Project documentation (this file)
 
 ### Notes
