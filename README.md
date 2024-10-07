@@ -44,14 +44,14 @@ This project implements a simple billing app for a SaaS platform using Cloudflar
 
 ### Prerequisite
 
-Create a `.dev.vars` file at the root with the following content:
+Upon installation a `.dev.vars` file has been automatically created for you at the root with the following content:
 
 ```text
 SENDGRID_API_KEY=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
 FROM_EMAIL_ADDRESS=hi@karimdaghari.com
 ```
 
-Please note that normally these variables would have to be communicated in a secure fashion but for the sake of the case study and given the async nature of our interaction, plus to quicken the setup experience, they're made immediately available.
+Normally these variables would have to be communicated in a secure fashion but for the sake of the case study and given the async nature of our interaction, plus to quicken the setup experience, they're made immediately available.
 
 ### Development
 
