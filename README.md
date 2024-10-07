@@ -1,6 +1,8 @@
-# SaaS Billing App with Cloudflare Workers
+# SaaS Billing App API with Cloudflare Workers
 
-This project implements a simple billing app for a SaaS platform using Cloudflare Workers. It supports multiple subscription tiers and handles recurring billing using TypeScript.
+![alt text](image.png)
+
+This project implements a simple billing api for a SaaS platform using Cloudflare Workers. It supports multiple subscription tiers and handles recurring billing using TypeScript.
 
 ## Tech Stack
 
@@ -26,8 +28,8 @@ This project implements a simple billing app for a SaaS platform using Cloudflar
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/karimdaghari/saas-billing-app.git
-   cd saas-billing-api
+   git clone https://github.com/karimdaghari/billing-app.git
+   cd billing-app
    ```
 
 2. Install dependencies:
