@@ -4,6 +4,33 @@
 
 This project implements a simple billing api for a SaaS platform using Cloudflare Workers. It supports multiple subscription tiers and handles recurring billing using TypeScript.
 
+## Table of Contents
+
+- [SaaS Billing App API with Cloudflare Workers](#saas-billing-app-api-with-cloudflare-workers)
+  - [Table of Contents](#table-of-contents)
+  - [Tech Stack](#tech-stack)
+  - [Setup](#setup)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+  - [Usage](#usage)
+    - [Prerequisite](#prerequisite)
+    - [Development](#development)
+      - [Running CRON jobs](#running-cron-jobs)
+    - [Testing](#testing)
+  - [Deployment](#deployment)
+  - [Project Structure](#project-structure)
+    - [Notes](#notes)
+  - [API Documentation](#api-documentation)
+  - [References](#references)
+  - [Important design decisions](#important-design-decisions)
+    - [Prorated billing](#prorated-billing)
+    - [Invoice generation](#invoice-generation)
+    - [Payment processing](#payment-processing)
+  - [Future improvements](#future-improvements)
+  - [Task 2-2: Code Refactoring](#task-2-2-code-refactoring)
+    - [Problematic Code](#problematic-code)
+    - [Problems](#problems)
+
 ## Tech Stack
 
 - **Hono**: A lightweight web framework for Cloudflare Workers. Chosen for its simplicity, excellent integration with Cloudflare (it was built by a CF dev and is used internally by CF), and optimized performance in serverless environments.
@@ -58,7 +85,7 @@ pnpm run dev
 
 This will start a local development server, allowing you to test your Cloudflare Worker locally.
 
-#### Testing CRON jobs
+#### Running CRON jobs
 
 To run cron jobs, you first need to run:
 
@@ -66,7 +93,7 @@ To run cron jobs, you first need to run:
 pnpm run test:scheduled
 ```
 
-Once the dev server starts, you can run:
+Once the dev server starts, in another tab/process you can run:
 
 ```bash
 pnpm run test:scheduled-invoices
