@@ -169,7 +169,8 @@ The project structure is organized as follows:
 
 ## API Documentation
 
-[!INFO] You need to be connected to internet to run the docs.
+> [!INFO]
+> You need to be connected to internet to run the docs.
 
 The API documentation for this project is available as an OpenAPI v3.1 specification. You can access the full API reference by visiting the `http://localhost:4200/docs` endpoint when the server is running.
 
@@ -195,13 +196,15 @@ For the most up-to-date and comprehensive API information, please refer to the `
 
 ### Prorated billing
 
-[!NOTE] See `src/services/billing/index.ts`.
+> [!NOTE]
+> See `src/services/billing/index.ts`.
 
 Prorated billing was developed to be as accurate as possible, in fact it's what required `date-fns` in the first place as it allows us to accurately get the number of days within a give date/year. So we don't even have to think about leap years -- it's all taken care of for us.
 
 ### Invoice generation
 
-[!NOTE] See `src/cron/generate-invoices.ts`.
+> [!NOTE]
+> See `src/cron/generate-invoices.ts`.
 
 In order to generate invoices, properly tracking (upgrade/downgrade) subscriptions was required and as such a new entity `CustomerSubscriptionPlan` was added which basically acts as a relational table between `Customer` and `SubscriptionPlan` and more, (e.g., when was the subscription activated, when did it end etc...).
 
@@ -214,7 +217,8 @@ Every day at 10 am a cron job is executed to generate the invoices for the plan 
 
 ### Payment processing
 
-[!NOTE] See `src/services/payment/index.ts` and `src/cron/retry-failed-payments.ts`.
+> [!NOTE]
+> See `src/services/payment/index.ts` and `src/cron/retry-failed-payments.ts`.
 
 Payment processing is handled through a combination of scheduled tasks and service functions. Here's an overview of how it works:
 
