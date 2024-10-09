@@ -65,9 +65,7 @@ This project implements a simple billing api for a SaaS platform using Cloudflar
    pnpm install
    ```
 
-3. Set up your Cloudflare account:
-   - Create a Cloudflare Workers project
-   - Configure your `wrangler.toml` file with your KV namespace bindings (just create one through `pnpx wrangler kv namespace create DATA_STORE`. Make sure it's named `DATA_STORE` and don't forget to update your `wrangler.toml` with your namespace ID)
+3. Set up your Cloudflare account and configure your `wrangler.toml` file with your KV namespace bindings (just create one through `pnpx wrangler kv namespace create DATA_STORE`. Make sure it's named `DATA_STORE` and don't forget to update your `wrangler.toml` with your namespace ID)
 
 ## Usage
 
